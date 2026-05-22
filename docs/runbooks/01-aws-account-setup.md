@@ -30,13 +30,28 @@ can be deactivated or deleted.
 
 Before starting you need:
 
-- An email address not already associated with an AWS account (for new account creation)
+- A **dedicated email address** for the root account — see the note below
 - A credit or debit card (AWS requires one even for free-tier accounts)
 - A phone number for account verification (SMS or voice call)
 - A virtual or hardware MFA device — Google Authenticator, Authy, 1Password TOTP, or a
   physical YubiKey
 - AWS CLI v2 installed (see Section 6 if not yet installed)
 - A password manager to store root credentials and access keys
+
+> **Root account email strategy.** The root email is permanent and is the ultimate recovery
+> path for the entire account — choose it carefully.
+>
+> **Recommended:** Use a dedicated alias on a domain you control, e.g. `aws-root@yourdomain.com`.
+> This is clearly labelled, routes to an inbox you monitor, and isn't structurally linked to your
+> day-to-day address. Do not use your primary personal email — if it is ever compromised, your
+> AWS root access is compromised with it. Do not use plus-addressing (`you+aws@gmail.com`) —
+> it still routes to the same inbox and is trivially reversible.
+>
+> **What to do with this address after account creation:**
+> - Store it in your password manager alongside the root password and MFA seed
+> - Set up billing alert forwarding to it (Section 4c) — you must actually read those alerts
+> - Never use it to log in for day-to-day work — that is what the IAM user in Section 5 is for
+> - Do not create root access keys — the runbook explicitly verifies none exist
 
 ---
 
@@ -45,8 +60,9 @@ Before starting you need:
 > Skip this section if you are using an existing AWS account. Go directly to Section 4.
 
 1. Open <https://aws.amazon.com/> and click **Create an AWS Account**.
-2. Enter your email address and choose an AWS account name (this is an internal label — choose
-   something meaningful like `my-platform-prod`).
+2. Enter your **dedicated root email address** (e.g. `aws-root@yourdomain.com` — see Prerequisites
+   above) and choose an AWS account name (this is an internal label — choose something meaningful
+   like `my-platform-prod`). The account name is visible only to you and AWS support.
 3. Click **Verify email address**. Check your inbox and enter the verification code.
 4. Set a strong root password (16+ characters, store it in your password manager now).
 5. Fill in contact information. Select **Personal** or **Business** as appropriate.
