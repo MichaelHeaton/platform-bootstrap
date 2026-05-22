@@ -84,10 +84,13 @@ HARDCODED_REGIONS = [
 ]
 
 # Bucket name heuristics — literals in .tf files that look like state buckets.
+# Patterns intentionally exclude strings containing "/" so that state key paths
+# like "platform-bootstrap/terraform.tfstate" are not flagged as bucket names.
+# S3 bucket names cannot contain forward slashes.
 BUCKET_NAME_PATTERNS = [
-    r'"[^"]*tfstate[^"]*"',
-    r'"[^"]*terraform-state[^"]*"',
-    r'"[^"]*state-bucket[^"]*"',
+    r'"[^"/]*tfstate[^"/]*"',
+    r'"[^"/]*terraform-state[^"/]*"',
+    r'"[^"/]*state-bucket[^"/]*"',
 ]
 
 REQUIRED_IAM_TAGS = {"environment", "cloud", "function", "managed-by"}
