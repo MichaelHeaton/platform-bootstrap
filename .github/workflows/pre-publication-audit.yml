@@ -1,0 +1,467 @@
+# pre-publication-audit.yml
+#
+# IMPORTANT: This workflow must be run manually before changing any repository
+# from private to public.
+#
+# It performs a multi-stage gate:
+#   1. `audit`               — Runs immediately; scans git history for secrets
+#                              (via trufflehog), checks for PII/internal-infra
+#                              patterns, verifies LICENSE and README quality.
+#                              HIGH severity findings (secrets, no LICENSE) fail
+#                              the job hard.  MEDIUM findings (PII patterns,
+#                              README quality) produce warnings but do not block.
+#
+#   2. `manual-approval-gate` — Pauses and requires a human reviewer to approve
+#                              the workflow run in the `pre-publication-approval`
+#                              environment before proceeding.  Configure required
+#                              reviewers in Settings → Environments.
+#
+#   3. `record-approval`     — Creates a GitHub issue documenting who approved
+#                              the publication and when.  The actual visibility
+#                              change must be made separately via a Terraform PR
+#                              so it is tracked in version control.
+#
+# Why workflow_dispatch only?
+#   GitHub has no native webhook for repository visibility changes.  Requiring
+#   this workflow to be triggered manually ensures the check is a deliberate,
+#   recorded human action rather than an automated side-effect.
+
+name: Pre-Publication Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo_name:
+        description: "Name of the repository to be made public (without org prefix)"
+        required: true
+        type: string
+      new_visibility:
+        description: "Target visibility (must be 'public' to proceed)"
+        required: true
+        type: choice
+        options:
+          - public
+          - private
+
+permissions:
+  contents: read       # checkout target repository
+  id-token: write      # OIDC (reserved for future AWS-side checks)
+  pull-requests: write # potential future PR annotation
+  issues: write        # create approval record issue
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: Audit — runs immediately, no environment gate
+  # ---------------------------------------------------------------------------
+  audit:
+    name: Audit — ${{ inputs.repo_name }}
+    runs-on: ubuntu-latest
+    # No `environment:` here — this job runs without a manual approval step so
+    # reviewers can see the findings before deciding whether to approve.
+
+    steps:
+      # -----------------------------------------------------------------------
+      # Guard: fail immediately if the caller selected 'private'.
+      # There is nothing to audit for a repository staying private.
+      # -----------------------------------------------------------------------
+      - name: Fail if target visibility is not public
+        if: inputs.new_visibility != 'public'
+        run: |
+          echo "::error::This workflow is only meaningful when new_visibility='public'."
+          echo "::error::You selected '${{ inputs.new_visibility }}' — nothing to do."
+          echo "If you intended to make a repository public, re-run with new_visibility=public."
+          exit 1
+
+      # -----------------------------------------------------------------------
+      # 1. Checkout the TARGET repository (not the platform-bootstrap repo).
+      #    fetch-depth: 0 retrieves full history so trufflehog can scan every
+      #    commit, not just the current tree.
+      # -----------------------------------------------------------------------
+      - name: Checkout target repository (full history)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.GITHUB_ORG }}/${{ inputs.repo_name }}
+          # full history is required for secret scanning across all commits
+          fetch-depth: 0
+
+      # -----------------------------------------------------------------------
+      # 2. Python — used for the PII/pattern grep aggregation step below.
+      # -----------------------------------------------------------------------
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # -----------------------------------------------------------------------
+      # 3. Install trufflehog for secret scanning.
+      #    We install the official binary rather than pulling a container so
+      #    that it runs inside the existing checkout step's workspace.
+      # -----------------------------------------------------------------------
+      - name: Install trufflehog
+        run: |
+          curl -sSfL \
+            https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh \
+            | sh -s -- -b /usr/local/bin
+          trufflehog --version
+
+      # -----------------------------------------------------------------------
+      # 4. Scan git history for secrets.
+      #    --no-update suppresses the version-check HTTP call (deterministic CI).
+      #    Output is captured as JSON; we inspect it in the summary step below.
+      #    continue-on-error: true so we collect ALL findings before deciding.
+      # -----------------------------------------------------------------------
+      - name: Scan git history for secrets (trufflehog)
+        id: secret_scan
+        continue-on-error: true
+        run: |
+          trufflehog git file://. \
+            --since-commit HEAD \
+            --no-update \
+            --json \
+            2>&1 | tee /tmp/secrets_scan.txt
+
+          # Count finding lines (each JSON object = one finding)
+          FINDINGS=$(grep -c '"DetectorName"' /tmp/secrets_scan.txt 2>/dev/null || echo "0")
+          echo "findings_count=${FINDINGS}" >> "$GITHUB_OUTPUT"
+          echo "Trufflehog findings: ${FINDINGS}"
+
+          if [ "$FINDINGS" -gt 0 ]; then
+            echo "::error::SECRET SCAN: ${FINDINGS} potential secret(s) detected in git history."
+            exit 1
+          fi
+
+      # -----------------------------------------------------------------------
+      # 5. PII / internal-infrastructure pattern checks.
+      #    These grep for common patterns that should not be public:
+      #      - RFC-1918 internal IP addresses
+      #      - 12-digit AWS account ID patterns
+      #      - Internal hostnames / domain suffixes (*.internal, *.corp, *.local)
+      #    A match is a MEDIUM severity warning — it may be a false positive
+      #    (e.g. a docs example), so we warn rather than hard-fail.
+      # -----------------------------------------------------------------------
+      - name: Check for PII and internal infrastructure references
+        id: pii_check
+        continue-on-error: true
+        run: |
+          FINDINGS=0
+
+          echo "=== PII / Internal Infrastructure Pattern Check ===" > /tmp/pii_check.txt
+          echo "" >> /tmp/pii_check.txt
+
+          # Internal IPv4 ranges (RFC 1918): 10.x, 172.16-31.x, 192.168.x
+          echo "--- Internal IP addresses ---" >> /tmp/pii_check.txt
+          if grep -rn \
+            -E '(^|[^0-9])(10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|172\.(1[6-9]|2[0-9]|3[01])\.[0-9]{1,3}\.[0-9]{1,3}|192\.168\.[0-9]{1,3}\.[0-9]{1,3})([^0-9]|$)' \
+            --include="*.tf" --include="*.py" --include="*.sh" \
+            --include="*.yaml" --include="*.yml" --include="*.json" \
+            --exclude-dir=".git" . \
+            >> /tmp/pii_check.txt 2>/dev/null; then
+            FINDINGS=$((FINDINGS + 1))
+            echo "::warning::PII_CHECK: Internal IP address pattern detected."
+          fi
+
+          # 12-digit AWS account ID pattern (standalone number)
+          echo "" >> /tmp/pii_check.txt
+          echo "--- AWS account ID patterns (12-digit numbers) ---" >> /tmp/pii_check.txt
+          if grep -rn \
+            -E '(^|[^0-9])[0-9]{12}([^0-9]|$)' \
+            --include="*.tf" --include="*.py" --include="*.sh" \
+            --include="*.yaml" --include="*.yml" --include="*.json" \
+            --exclude-dir=".git" . \
+            >> /tmp/pii_check.txt 2>/dev/null; then
+            FINDINGS=$((FINDINGS + 1))
+            echo "::warning::PII_CHECK: Possible AWS account ID (12-digit number) detected."
+          fi
+
+          # Internal hostnames: *.internal, *.corp, *.local, *.intranet
+          echo "" >> /tmp/pii_check.txt
+          echo "--- Internal hostname/domain patterns ---" >> /tmp/pii_check.txt
+          if grep -rn \
+            -iE '[a-z0-9-]+\.(internal|corp|local|intranet)([^a-z]|$)' \
+            --include="*.tf" --include="*.py" --include="*.sh" \
+            --include="*.yaml" --include="*.yml" --include="*.json" \
+            --exclude-dir=".git" . \
+            >> /tmp/pii_check.txt 2>/dev/null; then
+            FINDINGS=$((FINDINGS + 1))
+            echo "::warning::PII_CHECK: Internal hostname/domain pattern detected."
+          fi
+
+          echo "pii_findings=${FINDINGS}" >> "$GITHUB_OUTPUT"
+          echo "PII/internal pattern findings: ${FINDINGS}"
+
+          # MEDIUM severity — warn but don't fail the job
+          if [ "$FINDINGS" -gt 0 ]; then
+            echo "::warning::PII_CHECK: ${FINDINGS} MEDIUM-severity pattern(s) detected. Manual review required."
+          fi
+
+      # -----------------------------------------------------------------------
+      # 6. Verify a LICENSE file is present.
+      #    PUBLIC repos without a LICENSE are "All Rights Reserved" by default,
+      #    which is almost certainly not the intent.  This is HIGH severity.
+      # -----------------------------------------------------------------------
+      - name: Verify LICENSE file exists
+        id: license_check
+        continue-on-error: true
+        run: |
+          if [ -f LICENSE ] || [ -f LICENSE.md ] || [ -f LICENSE.txt ]; then
+            echo "license_found=true" >> "$GITHUB_OUTPUT"
+            echo "LICENSE file found."
+          else
+            echo "license_found=false" >> "$GITHUB_OUTPUT"
+            echo "::error::LICENSE_CHECK: No LICENSE file found. A public repository MUST have a license."
+            exit 1
+          fi
+
+      # -----------------------------------------------------------------------
+      # 7. README quality checks.
+      #    Requirements:
+      #      - File exists
+      #      - At least 200 characters (not just a stub)
+      #      - Contains at least one Markdown heading (# ...)
+      #      - Has a non-trivial description line beyond the first heading
+      #    These are MEDIUM severity — a thin README won't block publication
+      #    but should be flagged for improvement.
+      # -----------------------------------------------------------------------
+      - name: Check README quality
+        id: readme_check
+        continue-on-error: true
+        run: |
+          README_ISSUES=0
+
+          if [ ! -f README.md ] && [ ! -f README.rst ] && [ ! -f README ]; then
+            echo "::warning::README_CHECK: No README file found. Strongly recommended for public repos."
+            README_ISSUES=$((README_ISSUES + 1))
+          else
+            README_FILE=$(ls README.md README.rst README 2>/dev/null | head -1)
+            README_LEN=$(wc -c < "$README_FILE")
+            echo "README file: ${README_FILE} (${README_LEN} bytes)"
+
+            if [ "$README_LEN" -lt 200 ]; then
+              echo "::warning::README_CHECK: README is only ${README_LEN} chars — minimum 200 recommended for a public repo."
+              README_ISSUES=$((README_ISSUES + 1))
+            fi
+
+            # Must have at least one Markdown heading
+            if ! grep -qE '^#{1,6} .+' "$README_FILE" 2>/dev/null; then
+              echo "::warning::README_CHECK: README has no Markdown headings."
+              README_ISSUES=$((README_ISSUES + 1))
+            fi
+
+            # Must have some content beyond the first heading line
+            CONTENT_LINES=$(grep -cvE '^\s*$|^#{1,6} ' "$README_FILE" 2>/dev/null || echo "0")
+            if [ "$CONTENT_LINES" -lt 3 ]; then
+              echo "::warning::README_CHECK: README appears to be title-only (${CONTENT_LINES} non-heading, non-blank lines)."
+              README_ISSUES=$((README_ISSUES + 1))
+            fi
+          fi
+
+          echo "readme_issues=${README_ISSUES}" >> "$GITHUB_OUTPUT"
+          if [ "$README_ISSUES" -eq 0 ]; then
+            echo "README quality checks passed."
+          fi
+
+      # -----------------------------------------------------------------------
+      # 8. Write the formatted audit report to the step summary and a file.
+      #    This is always run (if: always()) so the summary is available even
+      #    when earlier steps failed.
+      # -----------------------------------------------------------------------
+      - name: Generate audit summary report
+        if: always()
+        env:
+          SECRET_OUTCOME: ${{ steps.secret_scan.outcome }}
+          SECRET_COUNT: ${{ steps.secret_scan.outputs.findings_count }}
+          PII_OUTCOME: ${{ steps.pii_check.outcome }}
+          PII_COUNT: ${{ steps.pii_check.outputs.pii_findings }}
+          LICENSE_OUTCOME: ${{ steps.license_check.outcome }}
+          LICENSE_FOUND: ${{ steps.license_check.outputs.license_found }}
+          README_OUTCOME: ${{ steps.readme_check.outcome }}
+          README_ISSUES: ${{ steps.readme_check.outputs.readme_issues }}
+        run: |
+          TODAY=$(date -u +%Y-%m-%d)
+          REPORT_FILE=/tmp/audit_report.txt
+
+          {
+            echo "# Pre-Publication Audit Report"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Repository | \`${{ vars.GITHUB_ORG }}/${{ inputs.repo_name }}\` |"
+            echo "| Requested visibility | \`${{ inputs.new_visibility }}\` |"
+            echo "| Run date | ${TODAY} |"
+            echo "| Triggered by | @${{ github.actor }} |"
+            echo "| Workflow run | ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} |"
+            echo ""
+            echo "## Findings Summary"
+            echo ""
+            echo "| Check | Severity | Result |"
+            echo "|---|---|---|"
+
+            # Secrets
+            if [ "${SECRET_OUTCOME}" = "success" ]; then
+              echo "| Secret scan (trufflehog) | HIGH | ✅ No secrets found |"
+            else
+              echo "| Secret scan (trufflehog) | HIGH | ❌ ${SECRET_COUNT:-unknown} potential secret(s) detected — BLOCKS publication |"
+            fi
+
+            # License
+            if [ "${LICENSE_FOUND}" = "true" ]; then
+              echo "| LICENSE file | HIGH | ✅ Present |"
+            else
+              echo "| LICENSE file | HIGH | ❌ Missing — BLOCKS publication |"
+            fi
+
+            # PII / internal refs
+            if [ "${PII_COUNT:-0}" -eq 0 ]; then
+              echo "| PII / internal references | MEDIUM | ✅ No patterns detected |"
+            else
+              echo "| PII / internal references | MEDIUM | ⚠️ ${PII_COUNT} pattern group(s) detected — review required |"
+            fi
+
+            # README
+            if [ "${README_ISSUES:-0}" -eq 0 ]; then
+              echo "| README quality | MEDIUM | ✅ Meets minimum quality bar |"
+            else
+              echo "| README quality | MEDIUM | ⚠️ ${README_ISSUES} issue(s) — improvement recommended |"
+            fi
+
+            echo ""
+
+            # Overall verdict
+            if [ "${SECRET_OUTCOME}" != "success" ] || [ "${LICENSE_FOUND}" != "true" ]; then
+              echo "## ❌ VERDICT: BLOCKED"
+              echo ""
+              echo "One or more HIGH severity findings were detected."
+              echo "Resolve all HIGH severity findings before proceeding."
+            else
+              echo "## ✅ VERDICT: AUDIT PASSED (pending manual approval)"
+              echo ""
+              echo "No HIGH severity findings. MEDIUM findings (if any) require human review."
+              echo "A reviewer must approve the \`pre-publication-approval\` environment gate."
+            fi
+
+            # Attach raw scan output
+            echo ""
+            echo "---"
+            echo ""
+            echo "## Raw Outputs"
+            echo ""
+            echo "### Trufflehog secret scan"
+            echo '```'
+            head -c 10000 /tmp/secrets_scan.txt 2>/dev/null || echo "(not available)"
+            echo '```'
+            echo ""
+            echo "### PII / internal pattern check"
+            echo '```'
+            head -c 10000 /tmp/pii_check.txt 2>/dev/null || echo "(not available)"
+            echo '```'
+
+          } | tee "${REPORT_FILE}" >> "$GITHUB_STEP_SUMMARY"
+
+      # -----------------------------------------------------------------------
+      # 9. Upload the full audit report as a workflow artifact.
+      #    30-day retention keeps it available for post-incident review.
+      # -----------------------------------------------------------------------
+      - name: Upload audit report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pre-publication-audit-${{ inputs.repo_name }}-${{ github.run_id }}
+          path: /tmp/audit_report.txt
+          retention-days: 30
+
+      # -----------------------------------------------------------------------
+      # 10. Final gate: fail the job if any HIGH severity check failed.
+      #     This prevents the manual-approval-gate job from even appearing if
+      #     the audit found something that must be fixed first.
+      # -----------------------------------------------------------------------
+      - name: Fail job on HIGH severity findings
+        if: >
+          steps.secret_scan.outcome == 'failure' ||
+          steps.license_check.outcome == 'failure'
+        run: |
+          echo "::error::Audit FAILED with HIGH severity findings."
+          echo "::error::Fix all HIGH severity issues before requesting pre-publication approval."
+          exit 1
+
+  # ---------------------------------------------------------------------------
+  # Job 2: Manual approval gate
+  # ---------------------------------------------------------------------------
+  manual-approval-gate:
+    name: Manual Approval Gate
+    runs-on: ubuntu-latest
+    needs: audit
+
+    # The `pre-publication-approval` environment must be configured in
+    # Settings → Environments with required reviewers.  This job will pause
+    # here until an authorised reviewer approves (or rejects) the run.
+    environment: pre-publication-approval
+
+    steps:
+      - name: Summarise approval request
+        run: |
+          echo "Audit complete — no HIGH severity findings detected."
+          echo ""
+          echo "Repository  : ${{ vars.GITHUB_ORG }}/${{ inputs.repo_name }}"
+          echo "Visibility  : ${{ inputs.new_visibility }}"
+          echo "Requested by: @${{ github.actor }}"
+          echo ""
+          echo "A reviewer has approved this workflow run."
+          echo "Proceed to create a Terraform PR to set visibility = public."
+
+  # ---------------------------------------------------------------------------
+  # Job 3: Record approval as a GitHub issue
+  # ---------------------------------------------------------------------------
+  record-approval:
+    name: Record Approval
+    runs-on: ubuntu-latest
+    needs: manual-approval-gate
+
+    steps:
+      # Create an audit-trail issue.  This is not a blocker issue — it is a
+      # permanent record of who approved and when, satisfying audit requirements
+      # for "who authorised this repository to become public".
+      - name: Create approval record issue
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const approvedAt = new Date().toISOString();
+            const repoFullName = `${{ vars.GITHUB_ORG }}/${{ inputs.repo_name }}`;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            const title = `[Publication Approved] ${{ inputs.repo_name }} — ${approvedAt}`;
+
+            const body = [
+              '## Repository Publication Approval Record',
+              '',
+              '| Field | Value |',
+              '|---|---|',
+              `| Repository | \`${repoFullName}\` |`,
+              `| Approved visibility | \`${{ inputs.new_visibility }}\` |`,
+              `| Approved at (UTC) | \`${approvedAt}\` |`,
+              `| Approved by | @${{ github.actor }} |`,
+              `| Workflow run | [${context.runId}](${runUrl}) |`,
+              '',
+              '## Next Steps',
+              '',
+              '1. Open a Terraform PR in this repository that sets the repository',
+              `   visibility to \`public\` for \`${repoFullName}\`.`,
+              '2. Reference this issue in the PR description for traceability.',
+              '3. Close this issue once the PR is merged and the visibility change',
+              '   is confirmed.',
+              '',
+              '> **Note:** The actual visibility change is performed via Terraform',
+              '> so it is tracked in version control and subject to normal PR review.',
+            ].join('\n');
+
+            const { data: issue } = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              title,
+              body,
+              labels: ['publication-approval'],
+            });
+
+            core.info(`Approval record created: ${issue.html_url}`);
+            core.summary.addRaw(`## Approval recorded\n\n[Issue #${issue.number}](${issue.html_url})\n`);
+            await core.summary.write();

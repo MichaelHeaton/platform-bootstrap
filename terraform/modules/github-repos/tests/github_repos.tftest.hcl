@@ -1,0 +1,42 @@
+# These tests require a valid GITHUB_TOKEN environment variable with repo
+# creation permissions in the target organisation.
+# Run with: terraform test
+# Resources created during the test run are destroyed automatically on completion.
+#
+# WARNING: github_repository resources have prevent_destroy = true in the main
+# module. The test framework destroys resources post-run regardless, but be
+# aware that applying this module outside of `terraform test` will protect repos
+# from accidental deletion.
+
+run "validation_rejects_platform_bootstrap" {
+  command = plan
+
+  # Expect Terraform to surface the validation error defined in variables.tf.
+  expect_failures = [var.repositories]
+
+  variables {
+    repositories = [
+      {
+        name        = "platform-bootstrap"
+        description = "Should be rejected by validation rule (ADR-004)"
+        visibility  = "private"
+        topics      = []
+      }
+    ]
+    codeowners = ["@test-owner"]
+  }
+}
+
+run "empty_repositories_succeeds" {
+  command = plan
+
+  variables {
+    repositories = []
+    codeowners   = ["@test-owner"]
+  }
+
+  assert {
+    condition     = tomap({}) == { for k, r in github_repository.managed : k => r.node_id }
+    error_message = "repository_ids must be an empty map when no repositories are provided"
+  }
+}
