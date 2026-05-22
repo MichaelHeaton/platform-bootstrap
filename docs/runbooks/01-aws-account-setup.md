@@ -38,20 +38,40 @@ Before starting you need:
 - AWS CLI v2 installed (see Section 6 if not yet installed)
 - A password manager to store root credentials and access keys
 
-> **Root account email strategy.** The root email is permanent and is the ultimate recovery
-> path for the entire account — choose it carefully.
+> **Root account email strategy.**
 >
-> **Recommended:** Use a dedicated alias on a domain you control, e.g. `aws-root@yourdomain.com`.
-> This is clearly labelled, routes to an inbox you monitor, and isn't structurally linked to your
-> day-to-day address. Do not use your primary personal email — if it is ever compromised, your
-> AWS root access is compromised with it. Do not use plus-addressing (`you+aws@gmail.com`) —
-> it still routes to the same inbox and is trivially reversible.
+> The root email is permanent, is the ultimate recovery path for the account, and should be
+> shared across every service that has a concept of an "owner" or "admin" account — AWS,
+> Cloudflare, GitHub org, etc. Choose it once and reuse it consistently.
 >
-> **What to do with this address after account creation:**
+> **Recommended alias:** `admin@yourdomain.com`
+>
+> Why `admin@` over other options:
+> - Universally understood as the owner/break-glass identity
+> - Reusable across AWS, Cloudflare, and any other platform-level account
+> - Not service-specific (unlike `aws@` or `cloudflare@`), so you only need one alias to remember
+> - Obfuscation is not a meaningful security goal here — M365 security, a strong unique password,
+>   and MFA on the mailbox are the actual protections
+>
+> **Create these three M365 aliases at the same time** (Exchange Admin Center → Recipients →
+> your mailbox → Manage email addresses → Add alias). All three route to your main inbox:
+>
+> | Alias | Purpose |
+> |---|---|
+> | `admin@yourdomain.com` | Root/owner login for all services (AWS, Cloudflare, etc.) |
+> | `billing@yourdomain.com` | AWS billing contact, invoice forwarding across services |
+> | `security@yourdomain.com` | AWS security contact, GuardDuty / abuse alerts |
+>
+> AWS lets you configure billing and security contacts separately from the root account email
+> (Account Settings → Contact information). After bootstrap, set those fields so billing noise
+> and security alerts go to the right place without touching the root inbox.
+>
+> **What to do with `admin@` after account creation:**
 > - Store it in your password manager alongside the root password and MFA seed
-> - Set up billing alert forwarding to it (Section 4c) — you must actually read those alerts
-> - Never use it to log in for day-to-day work — that is what the IAM user in Section 5 is for
+> - Never use it for day-to-day work — the IAM user in Section 5 is for that
 > - Do not create root access keys — the runbook explicitly verifies none exist
+> - Apply the same MFA discipline to the M365 mailbox itself — a compromised `admin@` inbox
+>   is equivalent to a compromised root account
 
 ---
 
@@ -60,7 +80,7 @@ Before starting you need:
 > Skip this section if you are using an existing AWS account. Go directly to Section 4.
 
 1. Open <https://aws.amazon.com/> and click **Create an AWS Account**.
-2. Enter your **dedicated root email address** (e.g. `aws-root@yourdomain.com` — see Prerequisites
+2. Enter your **dedicated root email address** (e.g. `admin@yourdomain.com` — see Prerequisites
    above) and choose an AWS account name (this is an internal label — choose something meaningful
    like `my-platform-prod`). The account name is visible only to you and AWS support.
 3. Click **Verify email address**. Check your inbox and enter the verification code.
@@ -143,7 +163,27 @@ Still on the Security credentials page:
 10. Check your email and confirm the SNS subscription for each alarm. Alarms will not fire until
     the subscription is confirmed.
 
-### 4d. Lock the Root Account
+### 4d. Set Separate Billing and Security Contact Addresses
+
+AWS supports distinct contact addresses for billing and security notifications, independent of
+the root account email. Setting these now keeps the root inbox quiet and routes each type of
+alert to the right place.
+
+1. Navigate to **Account Settings**:
+   <https://console.aws.amazon.com/billing/home#/account>
+2. Scroll to **Contact information** → **Alternate contacts**.
+3. Set **Billing contact** email to `billing@yourdomain.com`.
+4. Set **Security contact** email to `security@yourdomain.com`.
+5. Set **Operations contact** email to whichever address you want for operational alerts
+   (this can be the same as billing, or your regular working email).
+6. Click **Update**.
+
+> Billing alarms created in Section 4c use SNS, which sends to whatever email you subscribed.
+> The alternate contact setting here is separate — it controls which address AWS uses for
+> account-level communications (invoices, security advisories, abuse reports). Both are worth
+> setting.
+
+### 4e. Lock the Root Account
 
 The root account should never be used for day-to-day operations.
 
@@ -153,6 +193,10 @@ The root account should never be used for day-to-day operations.
 3. From this point forward, use only the IAM user created in Section 5. Return to the root
    account only for tasks that explicitly require it (e.g., closing the account, changing
    the account email address, or recovering from a complete IAM lockout).
+
+> **Reminder:** The `admin@yourdomain.com` mailbox is itself a break-glass credential.
+> Apply the same MFA discipline to it in M365 that you apply to the AWS root account.
+> A compromised inbox = compromised root recovery path.
 
 ---
 
