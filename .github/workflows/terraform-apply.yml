@@ -2,10 +2,8 @@
 #
 # Runs after a pull request is merged to main.  It re-runs plan (to catch any
 # drift that occurred between the PR plan and the merge) and then applies.
-#
-# The `production` environment requires manual approval via GitHub's
-# environment protection rules, giving a human a final opportunity to abort
-# before real infrastructure changes are made.
+# The PR process (branch protection + terraform-plan required check) is the
+# approval gate — no additional manual step needed after merge.
 #
 # Authentication: OIDC only — no static AWS credentials anywhere.
 
@@ -36,11 +34,6 @@ jobs:
   terraform-apply:
     name: Terraform Apply
     runs-on: ubuntu-latest
-
-    # The `production` environment gate gives the team a final approval step
-    # before infrastructure changes are applied.  Configure required reviewers
-    # and wait-timer in Settings → Environments → production.
-    environment: production
 
     # TF_VAR_* values are set at the job level so every Terraform step
     # automatically sees them without repeating the env block per-step.
