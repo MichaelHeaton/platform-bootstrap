@@ -39,11 +39,11 @@ lock:
 
 # Structural checks only — no AWS credentials required.
 compliance:
-	python scripts/compliance_check.py --structural-only
+	python3 scripts/compliance_check.py --structural-only
 
 # Full checks — requires AWS credentials and GITHUB_TOKEN in environment.
 compliance-full:
-	python scripts/compliance_check.py \
+	python3 scripts/compliance_check.py \
 		--account-id $(AWS_ACCOUNT_ID) \
 		--region $(AWS_REGION) \
 		--bucket $(TF_STATE_BUCKET_NAME) \
