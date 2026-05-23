@@ -48,7 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `.gitignore` excluding Terraform state files, `.tfvars`, `.terraform/` directories, and
   plan artifacts from version control
 
-## [0.1.0] - TBD
+## [0.1.0] - 2026-05-23
 
-_Initial bootstrap release. Tag this commit after completing `docs/runbooks/02-bootstrap.md`
-and verifying that the `terraform-apply` workflow succeeds on `main`._
+Initial bootstrap release. S3 state bucket, OIDC provider, and CI IAM role
+all bootstrapped manually and imported into Terraform state. All compliance
+checks passing. `v0.1.0` tagged on `main` after merge.
