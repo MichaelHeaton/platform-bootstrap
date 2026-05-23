@@ -40,9 +40,7 @@ resource "github_repository" "managed" {
 
   lifecycle {
     prevent_destroy = true
-
-    # auto_init only applies on creation; ignore subsequent drift.
-    ignore_changes = [auto_init]
+    ignore_changes  = [auto_init]
   }
 }
 
@@ -55,7 +53,7 @@ resource "github_repository_vulnerability_alerts" "managed" {
 }
 
 resource "github_branch_protection" "main" {
-  for_each = local.repos_map
+  for_each = { for k, v in local.repos_map : k => v if v.visibility == "public" }
 
   repository_id = github_repository.managed[each.key].node_id
   pattern       = each.value.default_branch
@@ -93,6 +91,8 @@ resource "github_repository_file" "codeowners" {
   overwrite_on_create = true
 
   lifecycle {
-    ignore_changes = [content]
+    # The GitHub Contents API cannot push directly to a protected branch,
+    # so Terraform must not attempt updates after the file is initially written.
+    ignore_changes = all
   }
 }
