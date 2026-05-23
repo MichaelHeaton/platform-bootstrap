@@ -24,6 +24,15 @@ permissions:
   id-token: write      # OIDC token exchange with AWS STS
   pull-requests: write # post / update plan comment
 
+# Only one terraform run at a time. Plans on older commits are cancelled so
+# the lock is always held by the most recent push.
+concurrency:
+  group: terraform-platform-bootstrap
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   terraform-plan:
     name: Terraform Plan

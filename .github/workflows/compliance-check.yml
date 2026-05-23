@@ -38,6 +38,13 @@ permissions:
   id-token: write # OIDC for AWS
   issues: write   # open drift-detection issue on scheduled failures
 
+concurrency:
+  group: compliance-platform-bootstrap
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   # ---------------------------------------------------------------------------
   # Job 1: Full compliance check (requires AWS credentials)

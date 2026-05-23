@@ -49,6 +49,9 @@ permissions:
   pull-requests: write # potential future PR annotation
   issues: write        # create approval record issue
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   # ---------------------------------------------------------------------------
   # Job 1: Audit — runs immediately, no environment gate

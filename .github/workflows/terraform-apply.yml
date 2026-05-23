@@ -23,6 +23,15 @@ permissions:
   contents: read  # checkout
   id-token: write # OIDC token exchange with AWS STS
 
+# Shares the group with terraform-plan so a running plan is cancelled before
+# apply starts. cancel-in-progress: false — never abort an in-flight apply.
+concurrency:
+  group: terraform-platform-bootstrap
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   terraform-apply:
     name: Terraform Apply
