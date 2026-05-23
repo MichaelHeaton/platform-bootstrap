@@ -10,3 +10,23 @@ import {
   to = module.github_repos.github_repository_vulnerability_alerts.managed["claude-skills"]
   id = "claude-skills"
 }
+
+import {
+  to = module.github_repos.github_repository_file.codeowners["claude-skills"]
+  id = "claude-skills/CODEOWNERS:Main"
+}
+
+import {
+  to = module.github_repos.github_repository.managed["memex"]
+  id = "memex"
+}
+
+import {
+  to = module.github_repos.github_repository_vulnerability_alerts.managed["memex"]
+  id = "memex"
+}
+
+import {
+  to = module.github_repos.github_repository_file.codeowners["memex"]
+  id = "memex/CODEOWNERS:main"
+}

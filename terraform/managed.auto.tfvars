@@ -14,4 +14,9 @@ managed_repositories = [
     visibility     = "public"
     default_branch = "Main"
   },
+  {
+    name        = "memex"
+    description = "My Default Obsidian Vault"
+    visibility  = "private"
+  },
 ]
