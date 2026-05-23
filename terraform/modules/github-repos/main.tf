@@ -26,13 +26,15 @@ resource "github_repository" "managed" {
   allow_rebase_merge     = false
   delete_branch_on_merge = true
 
-  security_and_analysis {
-    secret_scanning {
-      status = "enabled"
-    }
-
-    secret_scanning_push_protection {
-      status = "enabled"
+  dynamic "security_and_analysis" {
+    for_each = each.value.visibility == "public" ? [1] : []
+    content {
+      secret_scanning {
+        status = "enabled"
+      }
+      secret_scanning_push_protection {
+        status = "enabled"
+      }
     }
   }
 
