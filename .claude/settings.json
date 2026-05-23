@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C * stash*)",
+      "Bash(git -C * add *)",
+      "Bash(git -C * commit -m *)",
+      "Bash(git -C * checkout *)",
+      "Bash(git -C * push *)",
+      "Bash(git -C * pull*)",
+      "Bash(terraform -chdir=terraform fmt *)",
+      "Bash(terraform -chdir=terraform validate*)"
+    ]
+  }
+}
