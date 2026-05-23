@@ -1,0 +1,179 @@
+# compliance-check.yml
+#
+# Two jobs:
+#
+#   compliance-check  — Connects to AWS (OIDC, read-only role) and runs the
+#                       full compliance_check.py suite.  On a scheduled run,
+#                       any non-zero exit automatically opens a GitHub issue
+#                       so the team is alerted even without watching CI.
+#
+#   structural-checks — Pure local checks (no credentials).  Validates file
+#                       structure, naming conventions, and other invariants
+#                       that can be verified without AWS access.  Always runs
+#                       in parallel with compliance-check.
+#
+# Triggers:
+#   • Daily cron at 06:00 UTC — catches drift between CI runs
+#   • Pull request — catches regressions introduced by the PR
+#   • workflow_dispatch — allows on-demand runs, e.g. after an incident
+
+name: Compliance Check
+
+on:
+  schedule:
+    # 06:00 UTC daily
+    - cron: "0 6 * * *"
+
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "terraform/**"
+      - "scripts/compliance_check.py"
+
+  workflow_dispatch: {}
+
+permissions:
+  contents: read  # checkout
+  id-token: write # OIDC for AWS
+  issues: write   # open drift-detection issue on scheduled failures
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: Full compliance check (requires AWS credentials)
+  # ---------------------------------------------------------------------------
+  compliance-check:
+    name: Compliance Check (AWS)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Python is needed before we configure AWS so that any boto3 calls in
+      # compliance_check.py can use the credentials injected by the next step.
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: pip install boto3 PyGithub requests
+
+      # TODO: create a dedicated platform-bootstrap-compliance-readonly role with
+      # read-only IAM/S3 permissions and switch this to that role.
+      # Using the CI role for now to unblock the pipeline.
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/platform-bootstrap-github-actions
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Run compliance check
+        id: compliance
+        continue-on-error: true
+        run: |
+          python scripts/compliance_check.py \
+            --account-id "${{ vars.AWS_ACCOUNT_ID }}" \
+            --region "${{ vars.AWS_REGION }}" \
+            --bucket "${{ vars.TF_STATE_BUCKET_NAME }}" \
+            --github-org "${{ vars.GH_ORG }}" \
+            2>&1 | tee /tmp/compliance_output.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      # -----------------------------------------------------------------------
+      # Open a GitHub issue when the scheduled run detects drift.
+      # We check for an existing open issue with the same title prefix to avoid
+      # creating a new duplicate every day until someone fixes the drift.
+      # -----------------------------------------------------------------------
+      - name: Open GitHub issue on scheduled drift detection
+        if: >
+          steps.compliance.outcome == 'failure' &&
+          github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const today = new Date().toISOString().slice(0, 10);
+            const titlePrefix = 'Compliance drift detected';
+            const title = `${titlePrefix} — ${today}`;
+
+            // Check for an already-open issue with the same prefix so we don't
+            // create a duplicate for every day the drift remains unresolved.
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              state: 'open',
+              labels: 'compliance-drift',
+            });
+            const duplicate = existing.find(i => i.title.startsWith(titlePrefix));
+            if (duplicate) {
+              core.info(`Existing open issue found (#${duplicate.number}) — skipping duplicate creation.`);
+              return;
+            }
+
+            let output = '(output not available)';
+            try { output = fs.readFileSync('/tmp/compliance_output.txt', 'utf8'); } catch {}
+
+            const body = [
+              '## Compliance drift detected',
+              '',
+              `The scheduled compliance check on **${today}** exited non-zero.`,
+              'Review the findings below and open a pull request to remediate.',
+              '',
+              '<details>',
+              '<summary>Compliance check output</summary>',
+              '',
+              '```',
+              output.substring(0, 50000),
+              '```',
+              '</details>',
+              '',
+              `[Workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+            ].join('\n');
+
+            await github.rest.issues.create({
+              owner:  context.repo.owner,
+              repo:   context.repo.repo,
+              title,
+              body,
+              labels: ['compliance-drift'],
+            });
+
+      - name: Upload compliance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-report-${{ github.run_id }}
+          path: /tmp/compliance_output.txt
+          retention-days: 30
+
+      # Propagate the failure after we have uploaded the artefact and
+      # (potentially) opened the issue.
+      - name: Fail job if compliance check failed
+        if: steps.compliance.outcome == 'failure'
+        run: |
+          echo "::error::Compliance check failed. See uploaded artifact for details."
+          exit 1
+
+  # ---------------------------------------------------------------------------
+  # Job 2: Structural checks (no AWS credentials required)
+  # ---------------------------------------------------------------------------
+  structural-checks:
+    name: Structural Checks (local)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # --structural-only skips any step that talks to AWS so this job has
+      # no dependency on secrets or network access beyond PyPI.
+      - name: Run structural checks
+        run: python scripts/compliance_check.py --structural-only

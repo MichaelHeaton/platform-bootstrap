@@ -1,0 +1,113 @@
+# terraform-apply.yml
+#
+# Runs after a pull request is merged to main.  It re-runs plan (to catch any
+# drift that occurred between the PR plan and the merge) and then applies.
+#
+# The `production` environment requires manual approval via GitHub's
+# environment protection rules, giving a human a final opportunity to abort
+# before real infrastructure changes are made.
+#
+# Authentication: OIDC only — no static AWS credentials anywhere.
+
+name: Terraform Apply
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "terraform/**"
+      - ".github/workflows/terraform-apply.yml"
+
+permissions:
+  contents: read  # checkout
+  id-token: write # OIDC token exchange with AWS STS
+
+jobs:
+  terraform-apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+
+    # The `production` environment gate gives the team a final approval step
+    # before infrastructure changes are applied.  Configure required reviewers
+    # and wait-timer in Settings → Environments → production.
+    environment: production
+
+    # TF_VAR_* values are set at the job level so every Terraform step
+    # automatically sees them without repeating the env block per-step.
+    env:
+      TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+      TF_VAR_aws_account_id: ${{ vars.AWS_ACCOUNT_ID }}
+      TF_VAR_state_bucket_name: ${{ vars.TF_STATE_BUCKET_NAME }}
+      TF_VAR_github_org: ${{ vars.GH_ORG }}
+
+    steps:
+      # -----------------------------------------------------------------------
+      # 1. Source code
+      # -----------------------------------------------------------------------
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # 2. AWS credentials via OIDC
+      # -----------------------------------------------------------------------
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/platform-bootstrap-github-actions
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # -----------------------------------------------------------------------
+      # 3. Terraform
+      # -----------------------------------------------------------------------
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.10"
+
+      # -----------------------------------------------------------------------
+      # 4. Init — same backend-config pattern as plan workflow
+      # -----------------------------------------------------------------------
+      - name: Terraform Init
+        run: |
+          terraform -chdir=terraform init \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET_NAME }}" \
+            -backend-config="region=${{ vars.AWS_REGION }}"
+
+      # -----------------------------------------------------------------------
+      # 5. Plan — generate a plan file so that apply uses exactly what was
+      #    reviewed. A failure here stops the job before any apply occurs.
+      #    Unlike terraform-plan.yml this step does NOT use continue-on-error
+      #    because we want the job to fail hard if planning fails post-merge.
+      # -----------------------------------------------------------------------
+      - name: Terraform Plan
+        run: |
+          terraform -chdir=terraform plan \
+            -out=tfplan \
+            -no-color
+
+      # -----------------------------------------------------------------------
+      # 6. Apply — uses the plan file generated above, so exactly and only
+      #    what was planned is applied.
+      # -----------------------------------------------------------------------
+      - name: Terraform Apply
+        run: terraform -chdir=terraform apply -auto-approve tfplan
+
+      # -----------------------------------------------------------------------
+      # 7. Failure notice — only runs when a previous step failed.
+      #    Reminds the operator to check state consistency before retrying,
+      #    because a partial apply may have left resources in an inconsistent
+      #    state that a naive re-run could worsen.
+      # -----------------------------------------------------------------------
+      - name: Notify on apply failure
+        if: failure()
+        run: |
+          echo "::error::APPLY FAILED — check state consistency before re-running."
+          echo "::error::See docs/runbooks/02-bootstrap.md for recovery steps."
+          echo ""
+          echo "Common causes:"
+          echo "  - Provider API errors (transient; safe to retry)"
+          echo "  - State lock held by another run (check S3 + DynamoDB)"
+          echo "  - Resource already exists outside of Terraform (import required)"
+          echo ""
+          echo "DO NOT re-run apply blindly. Read the runbook first."

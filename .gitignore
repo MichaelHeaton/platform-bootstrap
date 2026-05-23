@@ -1,0 +1,84 @@
+# NOTE: .terraform.lock.hcl is intentionally NOT listed here.
+# The lock file records exact provider checksums and MUST be committed so
+# that every developer and every CI run uses exactly the same provider
+# binaries. See: https://developer.hashicorp.com/terraform/language/files/dependency-lock
+
+###############################################################################
+# Terraform
+###############################################################################
+
+# Local Terraform working directory — generated on `terraform init`
+.terraform/
+
+# Terraform state files — never commit state; it may contain secrets
+*.tfstate
+*.tfstate.backup
+*.tfstate.*.backup
+
+# State lock file written during operations — not safe to commit
+.terraform.tfstate.lock.info
+
+# terraform.tfvars may carry secrets (account IDs, tokens, etc.)
+# Use terraform.tfvars.example (committed) + terraform.tfvars (local, ignored)
+terraform.tfvars
+
+# Override files allow local provider/resource overrides; not for sharing
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform CLI configuration files — contain tokens and registry credentials
+.terraformrc
+terraform.rc
+
+# Terraform crash logs
+crash.log
+crash.*.log
+
+###############################################################################
+# Python
+###############################################################################
+
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Test and coverage artefacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Packaging artefacts
+*.egg-info/
+dist/
+build/
+
+# Virtual environments — use one of these naming conventions locally
+venv/
+.venv/
+
+# Local environment variable overrides — never commit real credentials
+.env
+
+###############################################################################
+# OS
+###############################################################################
+
+# macOS metadata
+.DS_Store
+
+# Windows thumbnail cache
+Thumbs.db
+
+# Vim/Emacs swap & backup files
+*.swp
+*~
+
+###############################################################################
+# IDE / editor
+###############################################################################
+
+.idea/
+.vscode/
+*.iml

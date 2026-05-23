@@ -1,0 +1,4 @@
+# Every file in the repository requires review from @MichaelHeaton.
+# CODEOWNERS is evaluated top-to-bottom; the last matching rule wins,
+# so this single catch-all is intentionally the only rule.
+* @MichaelHeaton
