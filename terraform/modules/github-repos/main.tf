@@ -39,7 +39,7 @@ resource "github_repository" "managed" {
   }
 
   lifecycle {
-    prevent_destroy = false
+    prevent_destroy = true
     ignore_changes  = [auto_init]
   }
 }
