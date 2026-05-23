@@ -28,8 +28,6 @@ concurrency:
   group: terraform-platform-bootstrap
   cancel-in-progress: false
 
-env:
-
 jobs:
   terraform-apply:
     name: Terraform Apply

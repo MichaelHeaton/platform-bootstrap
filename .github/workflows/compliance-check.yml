@@ -42,8 +42,6 @@ concurrency:
   group: compliance-platform-bootstrap
   cancel-in-progress: true
 
-env:
-
 jobs:
   # ---------------------------------------------------------------------------
   # Job 1: Full compliance check (requires AWS credentials)

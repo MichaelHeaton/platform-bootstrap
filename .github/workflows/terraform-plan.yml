@@ -30,8 +30,6 @@ concurrency:
   group: terraform-platform-bootstrap
   cancel-in-progress: true
 
-env:
-
 jobs:
   terraform-plan:
     name: Terraform Plan
