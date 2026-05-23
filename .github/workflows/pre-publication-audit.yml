@@ -80,7 +80,7 @@ jobs:
       - name: Checkout target repository (full history)
         uses: actions/checkout@v4
         with:
-          repository: ${{ vars.GITHUB_ORG }}/${{ inputs.repo_name }}
+          repository: ${{ vars.GH_ORG }}/${{ inputs.repo_name }}
           # full history is required for secret scanning across all commits
           fetch-depth: 0
 
@@ -285,7 +285,7 @@ jobs:
             echo ""
             echo "| Field | Value |"
             echo "|---|---|"
-            echo "| Repository | \`${{ vars.GITHUB_ORG }}/${{ inputs.repo_name }}\` |"
+            echo "| Repository | \`${{ vars.GH_ORG }}/${{ inputs.repo_name }}\` |"
             echo "| Requested visibility | \`${{ inputs.new_visibility }}\` |"
             echo "| Run date | ${TODAY} |"
             echo "| Triggered by | @${{ github.actor }} |"
@@ -401,7 +401,7 @@ jobs:
         run: |
           echo "Audit complete — no HIGH severity findings detected."
           echo ""
-          echo "Repository  : ${{ vars.GITHUB_ORG }}/${{ inputs.repo_name }}"
+          echo "Repository  : ${{ vars.GH_ORG }}/${{ inputs.repo_name }}"
           echo "Visibility  : ${{ inputs.new_visibility }}"
           echo "Requested by: @${{ github.actor }}"
           echo ""
@@ -426,7 +426,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const approvedAt = new Date().toISOString();
-            const repoFullName = `${{ vars.GITHUB_ORG }}/${{ inputs.repo_name }}`;
+            const repoFullName = `${{ vars.GH_ORG }}/${{ inputs.repo_name }}`;
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 
             const title = `[Publication Approved] ${{ inputs.repo_name }} — ${approvedAt}`;

@@ -242,7 +242,7 @@ aws sts get-caller-identity --query Account --output text   # AWS_ACCOUNT_ID
 # AWS_REGION: the region where your resources are deployed
 # TF_STATE_BUCKET_NAME: the bucket name — list your S3 buckets if unsure:
 aws s3 ls
-# GITHUB_ORG: your GitHub org or username
+# GH_ORG: your GitHub org or username
 ```
 
 | Variable | Where to find the value |
@@ -250,7 +250,7 @@ aws s3 ls
 | `AWS_ACCOUNT_ID` | `aws sts get-caller-identity` |
 | `TF_STATE_BUCKET_NAME` | `aws s3 ls` — find your opaque state bucket name |
 | `AWS_REGION` | Check `terraform/backend.tf` in your local clone or `aws configure get region` |
-| `GITHUB_ORG` | Your GitHub organisation or username |
+| `GH_ORG` | Your GitHub organisation or username |
 
 **Step 5: Verify OIDC trust still works**
 

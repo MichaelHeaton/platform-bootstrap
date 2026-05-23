@@ -41,7 +41,7 @@ You need:
   - `AWS_ACCOUNT_ID` — your 12-digit AWS account ID
   - `TF_STATE_BUCKET_NAME` — the bucket name you will create in Section 3
   - `AWS_REGION` — AWS region (e.g., `us-east-1`)
-  - `GITHUB_ORG` — your GitHub organisation or username
+  - `GH_ORG` — your GitHub organisation or username
 - **GitHub token** with `repo` permissions — needed for the GitHub Terraform provider to manage
   repositories. Set as the environment variable `GITHUB_TOKEN` before running Terraform.
 
@@ -158,7 +158,7 @@ Note the ARN returned — it will look like:
 ### 4b. Create the trust policy document
 
 Save the following as `/tmp/trust-policy.json`. Replace `ACCOUNT_ID` with your 12-digit AWS
-account ID and `GITHUB_ORG` with your GitHub organisation or username.
+account ID and `GH_ORG` with your GitHub organisation or username.
 
 ```json
 {
@@ -217,11 +217,11 @@ name from Section 3.
 
 ```bash
 export AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
-export GITHUB_ORG="<your-github-org-or-username>"
+export GH_ORG="<your-github-org-or-username>"
 
 # Substitute real values into the trust policy
 sed -i "s/ACCOUNT_ID/$AWS_ACCOUNT_ID/g" /tmp/trust-policy.json
-sed -i "s/GITHUB_ORG/$GITHUB_ORG/g" /tmp/trust-policy.json
+sed -i "s/GH_ORG/$GH_ORG/g" /tmp/trust-policy.json
 
 # Substitute bucket name into the permissions policy
 sed -i "s/BUCKET_NAME/$BOOTSTRAP_BUCKET/g" /tmp/bootstrap-policy.json
@@ -274,7 +274,7 @@ Create the following variables by clicking **New repository variable** for each:
 | `AWS_ACCOUNT_ID` | Your 12-digit account ID | From `aws sts get-caller-identity` |
 | `TF_STATE_BUCKET_NAME` | The bucket name from Section 3 | e.g. `mccleaton-tfstate` |
 | `AWS_REGION` | e.g., `us-east-1` | Must match the region used in Section 3 |
-| `GITHUB_ORG` | Your GitHub org or username | Case-sensitive |
+| `GH_ORG` | Your GitHub org or username | Case-sensitive |
 
 > **Variables vs Secrets:** These are repository *variables*, not *secrets*. Values appear in
 > plaintext in workflow logs. This is intentional — none of these values are sensitive credentials.
@@ -308,7 +308,7 @@ terraform init -backend=false
 export TF_VAR_aws_region="$AWS_REGION"
 export TF_VAR_aws_account_id="$(aws sts get-caller-identity --query Account --output text)"
 export TF_VAR_state_bucket_name="$BOOTSTRAP_BUCKET"
-export TF_VAR_github_org="$GITHUB_ORG"
+export TF_VAR_github_org="$GH_ORG"
 
 # Confirm values before proceeding
 echo "Region:  $TF_VAR_aws_region"
@@ -475,7 +475,7 @@ denied), update the trust policy directly in the IAM console:
 
 1. Navigate to **IAM** → **Roles** → `platform-bootstrap-github-actions`
 2. Click the **Trust relationships** tab → **Edit trust policy**
-3. Correct the `sub` condition to match `repo:GITHUB_ORG/platform-bootstrap:*`
+3. Correct the `sub` condition to match `repo:MichaelHeaton/platform-bootstrap:*`
 4. Save and re-run the workflow
 5. Run `terraform apply` locally to reconcile the trust policy back to Terraform management
 
