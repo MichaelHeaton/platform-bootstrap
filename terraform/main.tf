@@ -70,8 +70,9 @@ resource "aws_iam_policy" "bootstrap_ci_management" {
         Action = ["iam:*"]
         Resource = [
           "arn:aws:iam::${var.aws_account_id}:role/*-github-actions",
+          "arn:aws:iam::${var.aws_account_id}:role/platform-bootstrap-*",
           "arn:aws:iam::${var.aws_account_id}:policy/*-state-access",
-          "arn:aws:iam::${var.aws_account_id}:policy/platform-bootstrap-ci-management",
+          "arn:aws:iam::${var.aws_account_id}:policy/platform-bootstrap-*",
         ]
       },
       {
