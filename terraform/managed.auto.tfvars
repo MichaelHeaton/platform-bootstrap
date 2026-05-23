@@ -6,6 +6,6 @@ managed_repositories = [
     name        = "MichaelHeaton"
     description = "GitHub profile README"
     visibility  = "public"
-    topics      = ["profile"]
+    topics      = ["readme-profile"]
   },
 ]
