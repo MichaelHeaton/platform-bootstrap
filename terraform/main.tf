@@ -188,19 +188,6 @@ resource "aws_iam_role_policy_attachment" "compliance_readonly" {
   policy_arn = aws_iam_policy.compliance_readonly.arn
 }
 
-# ── Imports ───────────────────────────────────────────────────────────────────
-# workspaces existed on GitHub before Terraform management. Import it once,
-# then remove this block in a follow-up PR.
-
-import {
-  to = module.github_repos.github_repository.managed["workspaces"]
-  id = "workspaces"
-}
-
-import {
-  to = module.github_repos.github_repository_vulnerability_alerts.managed["workspaces"]
-  id = "workspaces"
-}
 
 # DEFERRED: Multi-account AWS via AWS Organizations
 # See ADR-006: In-repo modules
