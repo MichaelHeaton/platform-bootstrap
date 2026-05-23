@@ -36,14 +36,20 @@ resource "github_repository" "managed" {
     }
   }
 
-  vulnerability_alerts = true
-
   lifecycle {
     prevent_destroy = true
 
     # auto_init only applies on creation; ignore subsequent drift.
     ignore_changes = [auto_init]
   }
+}
+
+# vulnerability_alerts moved to a standalone resource per provider deprecation notice.
+resource "github_repository_vulnerability_alerts" "managed" {
+  for_each = local.repos_map
+
+  repository = github_repository.managed[each.key].name
+  enabled    = true
 }
 
 resource "github_branch_protection" "main" {
@@ -85,8 +91,6 @@ resource "github_repository_file" "codeowners" {
   overwrite_on_create = true
 
   lifecycle {
-    # The commit SHA changes on every external commit to this file.
-    # Ignore it to prevent Terraform from re-applying on every run.
-    ignore_changes = [commit_sha]
+    ignore_changes = [content]
   }
 }
