@@ -49,9 +49,6 @@ permissions:
   pull-requests: write # potential future PR annotation
   issues: write        # create approval record issue
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
 jobs:
   # ---------------------------------------------------------------------------
   # Job 1: Audit — runs immediately, no environment gate
@@ -81,7 +78,7 @@ jobs:
       #    commit, not just the current tree.
       # -----------------------------------------------------------------------
       - name: Checkout target repository (full history)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ vars.GH_ORG }}/${{ inputs.repo_name }}
           # full history is required for secret scanning across all commits
@@ -424,7 +421,7 @@ jobs:
       # permanent record of who approved and when, satisfying audit requirements
       # for "who authorised this repository to become public".
       - name: Create approval record issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

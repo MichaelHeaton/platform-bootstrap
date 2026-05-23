@@ -31,7 +31,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   terraform-plan:
@@ -43,7 +42,7 @@ jobs:
       # 1. Source code
       # -----------------------------------------------------------------------
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # -----------------------------------------------------------------------
       # 2. AWS credentials via OIDC — no long-lived keys
@@ -51,7 +50,7 @@ jobs:
       #    workflow file contains zero hardcoded account IDs.
       # -----------------------------------------------------------------------
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/platform-bootstrap-github-actions
           aws-region: ${{ vars.AWS_REGION }}
@@ -61,7 +60,7 @@ jobs:
       #    otherwise the constraint below keeps us on the 1.10 minor line.
       # -----------------------------------------------------------------------
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: "~> 1.10"
 
@@ -116,7 +115,7 @@ jobs:
       #    keep the PR timeline clean — only the most recent plan is visible.
       # -----------------------------------------------------------------------
       - name: Post plan comment
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           PLAN_OUTCOME: ${{ steps.plan.outcome }}
         with:

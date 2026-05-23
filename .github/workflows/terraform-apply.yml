@@ -29,7 +29,6 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   terraform-apply:
@@ -55,13 +54,13 @@ jobs:
       # 1. Source code
       # -----------------------------------------------------------------------
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # -----------------------------------------------------------------------
       # 2. AWS credentials via OIDC
       # -----------------------------------------------------------------------
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/platform-bootstrap-github-actions
           aws-region: ${{ vars.AWS_REGION }}
@@ -70,7 +69,7 @@ jobs:
       # 3. Terraform
       # -----------------------------------------------------------------------
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: "~> 1.10"
 
@@ -112,7 +111,7 @@ jobs:
       #    Deletes any previous apply comment to keep the timeline clean.
       # -----------------------------------------------------------------------
       - name: Post apply comment
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           APPLY_OUTCOME: ${{ steps.apply.outcome }}
         with:
