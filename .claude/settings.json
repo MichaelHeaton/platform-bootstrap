@@ -10,7 +10,12 @@
       "Bash(terraform -chdir=terraform fmt *)",
       "Bash(terraform -chdir=terraform validate*)",
       "Bash(glab mr list *)",
-      "Bash(glab mr view *)"
+      "Bash(glab mr view *)",
+      "Bash(glab issue list *)",
+      "Bash(glab issue view *)",
+      "Bash(glab auth *)",
+      "Bash(glab repo view *)",
+      "Bash(make help)"
     ]
   }
 }
