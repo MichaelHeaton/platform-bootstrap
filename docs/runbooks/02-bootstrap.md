@@ -39,7 +39,7 @@ You need:
 - **Git clone** of this repository (`platform-bootstrap`) on your local machine
 - **GitHub variables** set on the `platform-bootstrap` repository (see Section 5):
   - `AWS_ACCOUNT_ID` — your 12-digit AWS account ID
-  - `TF_STATE_BUCKET_NAME` — the opaque bucket name you will choose in Section 3
+  - `TF_STATE_BUCKET_NAME` — the bucket name you will create in Section 3
   - `AWS_REGION` — AWS region (e.g., `us-east-1`)
   - `GITHUB_ORG` — your GitHub organisation or username
 - **GitHub token** with `repo` permissions — needed for the GitHub Terraform provider to manage
@@ -59,16 +59,17 @@ terraform version
 The S3 bucket must exist before Terraform can use it as a backend. Create it now via AWS CLI.
 
 > **Bucket naming:** Bucket names are globally unique across all AWS accounts and must be 3–63
-> characters, lowercase letters, numbers, and hyphens only. Choose an opaque name that does not
-> reveal your account structure or infrastructure layout (see ADR-003).
+> characters, lowercase letters, numbers, and hyphens only. A `{owner}-tfstate` pattern works
+> well — unique in practice, recognisable in billing reports and CLI output. See ADR-003 for
+> the full naming rationale.
 
 ```bash
-# Choose an opaque bucket name and store it — this value goes into TF_STATE_BUCKET_NAME
-# Example: "xk9m2p-tfstate" — but choose your own unique value
-export BOOTSTRAP_BUCKET="<your-opaque-name>"
+# Set your bucket name — this value goes into the TF_STATE_BUCKET_NAME GitHub variable
+# Pattern: {owner}-tfstate  e.g. mccleaton-tfstate
+export BOOTSTRAP_BUCKET="mccleaton-tfstate"
 
 # Set region and profile
-export AWS_REGION="us-east-1"           # or your chosen region
+export AWS_REGION="us-west-2"           # or your chosen region
 export AWS_PROFILE="platform-bootstrap" # profile from runbook 01
 
 # -----------------------------------------------------------------------
@@ -271,7 +272,7 @@ Create the following variables by clicking **New repository variable** for each:
 | Variable name | Value | Notes |
 |---|---|---|
 | `AWS_ACCOUNT_ID` | Your 12-digit account ID | From `aws sts get-caller-identity` |
-| `TF_STATE_BUCKET_NAME` | The opaque bucket name from Section 3 | Store this value safely |
+| `TF_STATE_BUCKET_NAME` | The bucket name from Section 3 | e.g. `mccleaton-tfstate` |
 | `AWS_REGION` | e.g., `us-east-1` | Must match the region used in Section 3 |
 | `GITHUB_ORG` | Your GitHub org or username | Case-sensitive |
 

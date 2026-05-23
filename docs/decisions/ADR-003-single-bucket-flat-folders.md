@@ -12,7 +12,7 @@ use, how to name the bucket, and how to structure object keys within it.
 
 ## Decision
 
-Use a single S3 bucket with an opaque, non-descriptive name. State objects are organized with
+Use a single S3 bucket with a recognisable but unique name. State objects are organized with
 flat folder prefixes following the convention:
 
 ```
@@ -27,10 +27,13 @@ Examples:
 The same key pattern is used as the pipeline identifier in `var.pipelines`, ensuring the IAM
 role name and the S3 state path are always in sync without any extra variables.
 
-**Rationale for opaque bucket name:** Bucket names appear in URLs and logs. An opaque name
-(e.g., a random suffix) provides minor security-through-obscurity and prevents the bucket from
-being an obvious target based on its name alone. The name is stored as a GitHub Actions
-variable (`TF_STATE_BUCKET_NAME`) rather than being hardcoded in any source file.
+**Rationale for bucket naming:** The only hard requirement is global uniqueness across all AWS
+accounts. A name like `{owner}-tfstate` (e.g., `mccleaton-tfstate`) satisfies this while
+remaining recognisable in billing reports, CloudWatch logs, and CLI output without needing to
+look it up. Security-through-obscurity (random strings) was considered and rejected — the
+actual security controls are the private ACL, public access block, HTTPS-only bucket policy,
+and IAM path scoping. The name is stored as a GitHub Actions variable (`TF_STATE_BUCKET_NAME`)
+rather than being hardcoded in any source file.
 
 **Rationale for flat folder structure:** A single prefix level is simple to reason about. IAM
 policies can match exact prefixes without wildcards or multiple condition blocks. The naming
