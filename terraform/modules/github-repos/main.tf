@@ -26,15 +26,12 @@ resource "github_repository" "managed" {
   allow_rebase_merge     = false
   delete_branch_on_merge = true
 
-  dynamic "security_and_analysis" {
-    for_each = each.value.visibility == "public" ? [1] : []
-    content {
-      secret_scanning {
-        status = "enabled"
-      }
-      secret_scanning_push_protection {
-        status = "enabled"
-      }
+  security_and_analysis {
+    secret_scanning {
+      status = "enabled"
+    }
+    secret_scanning_push_protection {
+      status = "enabled"
     }
   }
 
@@ -53,7 +50,7 @@ resource "github_repository_vulnerability_alerts" "managed" {
 }
 
 resource "github_branch_protection" "main" {
-  for_each = { for k, v in local.repos_map : k => v if v.visibility == "public" }
+  for_each = local.repos_map
 
   repository_id = github_repository.managed[each.key].node_id
   pattern       = each.value.default_branch
