@@ -8,7 +8,9 @@
       "Bash(git -C * push *)",
       "Bash(git -C * pull*)",
       "Bash(terraform -chdir=terraform fmt *)",
-      "Bash(terraform -chdir=terraform validate*)"
+      "Bash(terraform -chdir=terraform validate*)",
+      "Bash(glab mr list *)",
+      "Bash(glab mr view *)"
     ]
   }
 }
