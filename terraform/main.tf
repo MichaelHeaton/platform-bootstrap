@@ -24,6 +24,20 @@ module "oidc_roles" {
   pipelines        = var.pipelines
 }
 
+module "service_accounts" {
+  source   = "./modules/service-accounts"
+  for_each = { for s in var.service_accounts : s.service_name => s }
+
+  service_name         = each.value.service_name
+  repo_name            = each.value.repo_name
+  github_org           = var.github_org
+  aws_account_id       = var.aws_account_id
+  aws_region           = var.aws_region
+  oidc_provider_arn    = module.oidc_roles.oidc_provider_arn
+  artifact_bucket_name = each.value.artifact_bucket_name
+  allowed_ref          = each.value.allowed_ref
+}
+
 module "github_repos" {
   source = "./modules/github-repos"
 

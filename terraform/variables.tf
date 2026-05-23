@@ -30,6 +30,17 @@ variable "pipelines" {
   default     = []
 }
 
+variable "service_accounts" {
+  type = list(object({
+    service_name         = string
+    repo_name            = string
+    artifact_bucket_name = string
+    allowed_ref          = optional(string, "refs/heads/main")
+  }))
+  description = "Service deploy accounts. Each entry creates: an S3 artifacts bucket (owned by platform-bootstrap), a Lambda permission boundary, and a GitHub Actions OIDC deploy role scoped to that service's resources."
+  default     = []
+}
+
 variable "managed_repositories" {
   type = list(object({
     name           = string

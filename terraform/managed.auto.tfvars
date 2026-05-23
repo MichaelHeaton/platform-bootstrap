@@ -1,5 +1,17 @@
 # Infrastructure managed by this platform.
-# Add new repos and pipelines here — Terraform picks this file up automatically.
+# Add new repos, pipelines, and service accounts here — Terraform picks this file up automatically.
+
+service_accounts = [
+  # Each entry creates: S3 artifacts bucket, Lambda permission boundary, GitHub Actions OIDC deploy role.
+  # The deploy role is scoped to {service_name}-* resources and cannot delete the bucket or modify IAM
+  # outside the service prefix. The permission boundary caps what Lambda execution roles can ever do.
+  {
+    service_name         = "memex-suite"
+    repo_name            = "memex-suite"
+    artifact_bucket_name = "memex-suite-sam-artifacts"
+    allowed_ref          = "refs/heads/main"
+  },
+]
 
 managed_repositories = [
   # ── Personal ────────────────────────────────────────────────────────────────
