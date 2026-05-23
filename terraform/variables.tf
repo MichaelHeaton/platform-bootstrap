@@ -32,10 +32,11 @@ variable "pipelines" {
 
 variable "managed_repositories" {
   type = list(object({
-    name        = string
-    description = string
-    visibility  = string
-    topics      = optional(list(string), [])
+    name           = string
+    description    = string
+    visibility     = string
+    topics         = optional(list(string), [])
+    default_branch = optional(string, "main")
   }))
   description = "GitHub repositories to manage. Must NOT include platform-bootstrap. See ADR-004."
   default     = []

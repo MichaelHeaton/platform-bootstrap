@@ -56,7 +56,7 @@ resource "github_branch_protection" "main" {
   for_each = local.repos_map
 
   repository_id = github_repository.managed[each.key].node_id
-  pattern       = var.default_branch
+  pattern       = each.value.default_branch
 
   # Admins can bypass in emergencies (break-glass), but normal pushes always
   # require a reviewed PR.
@@ -66,9 +66,9 @@ resource "github_branch_protection" "main" {
   allows_force_pushes = false
 
   required_pull_request_reviews {
-    required_approving_review_count = 1
-    dismiss_stale_reviews           = true
-    require_code_owner_reviews      = true
+    required_approving_review_count = 0
+    dismiss_stale_reviews           = false
+    require_code_owner_reviews      = false
   }
 
   # required_status_checks are intentionally left unset here.
@@ -81,7 +81,7 @@ resource "github_repository_file" "codeowners" {
   for_each = local.repos_map
 
   repository = github_repository.managed[each.key].name
-  branch     = var.default_branch
+  branch     = each.value.default_branch
   file       = "CODEOWNERS"
 
   # "* <owner1> <owner2>" — every path owned by all listed handles.

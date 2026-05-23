@@ -60,13 +60,10 @@ jobs:
       - name: Install Python dependencies
         run: pip install boto3 PyGithub requests
 
-      # TODO: create a dedicated platform-bootstrap-compliance-readonly role with
-      # read-only IAM/S3 permissions and switch this to that role.
-      # Using the CI role for now to unblock the pipeline.
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/platform-bootstrap-github-actions
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/platform-bootstrap-compliance-readonly
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Run compliance check
