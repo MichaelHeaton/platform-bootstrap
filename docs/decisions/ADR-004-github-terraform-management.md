@@ -67,6 +67,6 @@ compliance script checks that `platform-bootstrap` does NOT appear in any
 
 ## Future State
 
-If GitLab repositories are added to the platform, a separate `terraform-gitlab-repos` module
-will be needed. This is deferred pending confirmed GitLab support in the target CI platform.
-A placeholder comment exists in `terraform/main.tf`.
+GitLab repositories are being migrated to GitHub rather than integrated into this Terraform
+module. A `terraform-gitlab-repos` module will not be built. See ADR-008 for the migration
+decision and `docs/runbooks/04-gitlab-github-migration.md` for the migration procedure.

@@ -196,5 +196,5 @@ resource "aws_iam_role_policy_attachment" "compliance_readonly" {
 # See ADR-006: In-repo modules
 # Pending: confirmed need
 
-# DEFERRED: GitLab provider
-# Pending: GitLab support in target CI platform
+# GitLab repositories are being migrated to GitHub.
+# See ADR-008 and docs/runbooks/04-gitlab-github-migration.md.
