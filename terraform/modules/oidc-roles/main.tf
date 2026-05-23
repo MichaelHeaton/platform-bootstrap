@@ -88,9 +88,9 @@ resource "aws_iam_policy" "pipeline_state" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "ListStateFolder"
-        Effect = "Allow"
-        Action = "s3:ListBucket"
+        Sid      = "ListStateFolder"
+        Effect   = "Allow"
+        Action   = "s3:ListBucket"
         Resource = var.state_bucket_arn
         Condition = {
           StringLike = {
