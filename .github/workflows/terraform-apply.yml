@@ -49,6 +49,7 @@ jobs:
       TF_VAR_aws_account_id: ${{ vars.AWS_ACCOUNT_ID }}
       TF_VAR_state_bucket_name: ${{ vars.TF_STATE_BUCKET_NAME }}
       TF_VAR_github_org: ${{ vars.GH_ORG }}
+      GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
     steps:
       # -----------------------------------------------------------------------
