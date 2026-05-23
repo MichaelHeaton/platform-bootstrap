@@ -20,9 +20,9 @@ managed_repositories = [
     visibility  = "public"
   },
   {
-    name        = "workspaces"
-    description = "VS Code multi-root workspace configuration"
-    visibility  = "private"
+    name           = "workspaces"
+    description    = "VS Code multi-root workspace configuration"
+    visibility     = "private"
     default_branch = "Master"
   },
   {
