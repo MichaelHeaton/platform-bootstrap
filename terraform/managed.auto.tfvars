@@ -8,4 +8,15 @@ managed_repositories = [
     visibility  = "public"
     topics      = ["readme-profile"]
   },
+  {
+    name           = "claude-skills"
+    description    = "Custom Claude Code skills for daily workflows"
+    visibility     = "public"
+    default_branch = "Main"
+  },
+  {
+    name        = "memex"
+    description = "My Default Obsidian Vault"
+    visibility  = "private"
+  },
 ]
