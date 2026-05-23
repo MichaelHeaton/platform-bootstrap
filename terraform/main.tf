@@ -27,9 +27,8 @@ module "oidc_roles" {
 module "github_repos" {
   source = "./modules/github-repos"
 
-  repositories   = var.managed_repositories
-  default_branch = "main"
-  codeowners     = ["@MichaelHeaton"] # See CODEOWNERS
+  repositories = var.managed_repositories
+  codeowners   = ["@MichaelHeaton"] # See CODEOWNERS
 }
 
 # ── Bootstrap CI role permissions ─────────────────────────────────────────────

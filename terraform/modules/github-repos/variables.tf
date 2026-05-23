@@ -1,9 +1,10 @@
 variable "repositories" {
   type = list(object({
-    name        = string
-    description = string
-    visibility  = string
-    topics      = optional(list(string), [])
+    name           = string
+    description    = string
+    visibility     = string
+    topics         = optional(list(string), [])
+    default_branch = optional(string, "main")
   }))
   description = "Repositories to manage. Must NOT include platform-bootstrap (see ADR-004)."
 
@@ -16,12 +17,6 @@ variable "repositories" {
     condition     = alltrue([for r in var.repositories : contains(["private", "public"], r.visibility)])
     error_message = "Repository visibility must be 'private' or 'public'."
   }
-}
-
-variable "default_branch" {
-  type        = string
-  description = "Default branch name for all managed repositories."
-  default     = "main"
 }
 
 variable "codeowners" {
