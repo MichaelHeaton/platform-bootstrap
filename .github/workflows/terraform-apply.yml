@@ -116,7 +116,7 @@ jobs:
         env:
           APPLY_OUTCOME: ${{ steps.apply.outcome }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GH_TOKEN }}
           script: |
             const fs = require('fs');
 
@@ -151,44 +151,48 @@ jobs:
               '</details>',
             ].join('\n');
 
-            // Find the PR that produced this merge commit.
-            const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
-              owner:      context.repo.owner,
-              repo:       context.repo.repo,
-              commit_sha: context.sha,
-            });
-
-            if (prs.length === 0) {
-              console.log('No PR associated with this commit — skipping comment.');
-            } else {
-              const prNumber = prs[0].number;
-
-              // Delete any previous apply comment so only the latest is shown.
-              const { data: comments } = await github.rest.issues.listComments({
-                owner:        context.repo.owner,
-                repo:         context.repo.repo,
-                issue_number: prNumber,
+            // Best-effort PR comment — a failure here must not mask a successful apply.
+            try {
+              const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                owner:      context.repo.owner,
+                repo:       context.repo.repo,
+                commit_sha: context.sha,
               });
-              for (const comment of comments) {
-                if (
-                  comment.user.type === 'Bot' &&
-                  comment.body.includes('## ') &&
-                  comment.body.includes('Terraform Apply')
-                ) {
-                  await github.rest.issues.deleteComment({
-                    owner:      context.repo.owner,
-                    repo:       context.repo.repo,
-                    comment_id: comment.id,
-                  });
+
+              if (prs.length === 0) {
+                console.log('No PR associated with this commit — skipping comment.');
+              } else {
+                const prNumber = prs[0].number;
+
+                // Delete any previous apply comment so only the latest is shown.
+                const { data: comments } = await github.rest.issues.listComments({
+                  owner:        context.repo.owner,
+                  repo:         context.repo.repo,
+                  issue_number: prNumber,
+                });
+                for (const comment of comments) {
+                  if (
+                    comment.user.type === 'Bot' &&
+                    comment.body.includes('## ') &&
+                    comment.body.includes('Terraform Apply')
+                  ) {
+                    await github.rest.issues.deleteComment({
+                      owner:      context.repo.owner,
+                      repo:       context.repo.repo,
+                      comment_id: comment.id,
+                    });
+                  }
                 }
-              }
 
-              await github.rest.issues.createComment({
-                owner:        context.repo.owner,
-                repo:         context.repo.repo,
-                issue_number: prNumber,
-                body,
-              });
+                await github.rest.issues.createComment({
+                  owner:        context.repo.owner,
+                  repo:         context.repo.repo,
+                  issue_number: prNumber,
+                  body,
+                });
+              }
+            } catch (e) {
+              console.log(`Warning: could not post apply comment — ${e.message}`);
             }
 
             // Propagate apply failure so the job is marked red and the
