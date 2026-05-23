@@ -35,6 +35,11 @@ jobs:
     name: Terraform Apply
     runs-on: ubuntu-latest
 
+    # Links this run to the `production` environment so GitHub creates a
+    # deployment record and surfaces apply status on the originating PR page.
+    # Required reviewers are disabled on the environment — no approval gate.
+    environment: production
+
     # TF_VAR_* values are set at the job level so every Terraform step
     # automatically sees them without repeating the env block per-step.
     env:
