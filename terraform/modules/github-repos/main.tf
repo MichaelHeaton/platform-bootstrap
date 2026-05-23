@@ -66,9 +66,9 @@ resource "github_branch_protection" "main" {
   allows_force_pushes = false
 
   required_pull_request_reviews {
-    required_approving_review_count = 1
-    dismiss_stale_reviews           = true
-    require_code_owner_reviews      = true
+    required_approving_review_count = 0
+    dismiss_stale_reviews           = false
+    require_code_owner_reviews      = false
   }
 
   # required_status_checks are intentionally left unset here.

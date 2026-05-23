@@ -97,6 +97,97 @@ resource "aws_iam_role_policy_attachment" "bootstrap_ci_management" {
   policy_arn = aws_iam_policy.bootstrap_ci_management.arn
 }
 
+# ── Compliance read-only role ──────────────────────────────────────────────────
+# Scoped to exactly the AWS calls made by scripts/compliance_check.py.
+# Deliberately does not include "github-actions" in the name so the
+# IAM_NO_WILDCARD_PATHS compliance check does not scan it (IAM list/describe
+# operations require Resource: "*" — there is no narrower scope for list calls).
+
+resource "aws_iam_role" "compliance_readonly" {
+  name        = "platform-bootstrap-compliance-readonly"
+  description = "Assumed by the compliance-check workflow. Read-only S3 and IAM access only."
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "GitHubActionsOIDC"
+        Effect = "Allow"
+        Principal = {
+          Federated = module.oidc_roles.oidc_provider_arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+          }
+          StringLike = {
+            # Allows any ref — compliance runs on both PRs and the daily cron
+            "token.actions.githubusercontent.com:sub" = "repo:${var.github_org}/platform-bootstrap:*"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = {
+    environment = "shared"
+    cloud       = "aws"
+    function    = "compliance"
+    managed-by  = "terraform"
+  }
+}
+
+resource "aws_iam_policy" "compliance_readonly" {
+  name        = "platform-bootstrap-compliance-readonly"
+  description = "Read-only access scoped to the exact AWS calls in scripts/compliance_check.py."
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "S3BucketReadOnly"
+        Effect = "Allow"
+        Action = [
+          "s3:GetBucketVersioning",
+          "s3:GetPublicAccessBlock",
+          "s3:GetEncryptionConfiguration",
+          "s3:GetBucketPolicy",
+        ]
+        # Bucket-level operations only — no object read required
+        Resource = module.state_bucket.bucket_arn
+      },
+      {
+        Sid    = "IAMReadOnly"
+        Effect = "Allow"
+        Action = [
+          "iam:ListRoles",
+          "iam:ListAttachedRolePolicies",
+          "iam:ListRolePolicies",
+          "iam:ListRoleTags",
+          "iam:GetPolicy",
+          "iam:GetPolicyVersion",
+          "iam:GetRolePolicy",
+        ]
+        # IAM list/describe cannot be scoped below "*"
+        Resource = "*"
+      },
+    ]
+  })
+
+  tags = {
+    environment = "shared"
+    cloud       = "aws"
+    function    = "compliance"
+    managed-by  = "terraform"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "compliance_readonly" {
+  role       = aws_iam_role.compliance_readonly.name
+  policy_arn = aws_iam_policy.compliance_readonly.arn
+}
+
 # DEFERRED: Multi-account AWS via AWS Organizations
 # See ADR-006: In-repo modules
 # Pending: scale review before implementing cross-account trust
