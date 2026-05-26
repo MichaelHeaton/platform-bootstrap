@@ -2,10 +2,6 @@
 # — not via rulesets, to allow a manual approval step before any repo goes public.
 # See ADR-004: GitHub Repository Management via Terraform.
 
-locals {
-  repos_map = { for r in var.repositories : r.name => r }
-}
-
 resource "github_repository" "managed" {
   for_each = local.repos_map
 
@@ -14,9 +10,10 @@ resource "github_repository" "managed" {
   visibility  = each.value.visibility
   topics      = each.value.topics
 
-  has_issues   = true
-  has_wiki     = false
-  has_projects = false
+  has_issues      = try(each.value.has_issues, true)
+  has_wiki        = try(each.value.has_wiki, false)
+  has_projects    = try(each.value.has_projects, false)
+  has_discussions = try(each.value.has_discussions, false)
 
   # auto_init is ignored after initial creation to avoid drift on existing repos.
   auto_init = false

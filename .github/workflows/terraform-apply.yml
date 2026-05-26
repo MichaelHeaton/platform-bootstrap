@@ -15,6 +15,7 @@ on:
       - main
     paths:
       - "terraform/**"
+      - "scripts/github_repo_extras.py"
       - ".github/workflows/terraform-apply.yml"
 
 permissions:
@@ -45,6 +46,7 @@ jobs:
       TF_VAR_aws_account_id: ${{ vars.AWS_ACCOUNT_ID }}
       TF_VAR_state_bucket_name: ${{ vars.TF_STATE_BUCKET_NAME }}
       TF_VAR_github_org: ${{ vars.GH_ORG }}
+      TF_VAR_github_token: ${{ secrets.GH_TOKEN }}
       GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
     steps:

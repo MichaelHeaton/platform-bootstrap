@@ -23,6 +23,8 @@ Complete these in order. Each runbook assumes the previous one is done.
 1. [01 — AWS Account Setup](docs/runbooks/01-aws-account-setup.md)
 2. [02 — Bootstrap](docs/runbooks/02-bootstrap.md)
 3. [03 — Disaster Recovery](docs/runbooks/03-disaster-recovery.md)
+4. [04 — Add a Service](docs/runbooks/04-add-service.md)
+5. [05 — SpecterRealm Pack GitHub Settings](docs/runbooks/05-specterrealm-pack-github-settings.md)
 
 ## How to Add a New Project
 

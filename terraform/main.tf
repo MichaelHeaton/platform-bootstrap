@@ -38,11 +38,23 @@ module "service_accounts" {
   allowed_ref          = each.value.allowed_ref
 }
 
+locals {
+  managed_repositories_resolved = [
+    for repo in var.managed_repositories : (
+      repo.name == "minecraft-modpack-cp-verdant"
+      ? merge(repo, local.pack_settings_minecraft_modpack_cp_verdant)
+      : repo
+    )
+  ]
+}
+
 module "github_repos" {
   source = "./modules/github-repos"
 
-  repositories = var.managed_repositories
+  repositories = local.managed_repositories_resolved
   codeowners   = ["@MichaelHeaton"] # See CODEOWNERS
+  github_org   = var.github_org
+  github_token = var.github_token
 }
 
 # ── Bootstrap CI role permissions ─────────────────────────────────────────────
