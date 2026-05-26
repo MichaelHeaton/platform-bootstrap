@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -17,43 +17,33 @@ import github_repo_extras as extras  # noqa: E402
 def test_list_category_slugs_parses_nodes() -> None:
     with patch.object(extras, "_graphql", return_value={
         "repository": {
+            "hasDiscussionsEnabled": True,
             "discussionCategories": {
                 "nodes": [{"slug": "ideas"}, {"slug": "general"}],
-            }
+            },
         }
     }):
         assert extras._list_category_slugs("org", "repo") == {"ideas", "general"}
 
 
-def test_ensure_discussion_category_skips_existing() -> None:
-    args = argparse_namespace(
-        repo="pack",
-        name="Ideas",
-        slug="ideas",
-        description="x",
-        emoji="",
-    )
+def test_verify_discussion_categories_fails_when_missing() -> None:
+    args = type("NS", (), {"repo": "minecraft-modpack-cp-verdant"})()
     with (
+        patch.dict("os.environ", {"GITHUB_TOKEN": "t", "GITHUB_ORG": "MichaelHeaton"}),
         patch.object(extras, "_list_category_slugs", return_value={"ideas"}),
-        patch.object(extras, "_repository_node_id") as repo_id,
-        patch.object(extras, "_graphql") as gql,
+        pytest.raises(SystemExit) as exc,
     ):
-        extras.cmd_ensure_discussion_category(args)
-        repo_id.assert_not_called()
-        gql.assert_not_called()
+        extras.cmd_verify_discussion_categories(args)
+    assert exc.value.code == 1
 
 
 def test_delete_label_treats_404_as_success() -> None:
     import urllib.error
 
-    args = argparse_namespace(repo="pack", name="domain/adobe")
+    args = type("NS", (), {"repo": "pack", "name": "domain/adobe"})()
     err = urllib.error.HTTPError("url", 404, "nope", hdrs=None, fp=None)
     with (
         patch.dict("os.environ", {"GITHUB_TOKEN": "t", "GITHUB_ORG": "MichaelHeaton"}),
         patch("urllib.request.urlopen", side_effect=err),
     ):
         extras.cmd_delete_label(args)
-
-
-def argparse_namespace(**kwargs):
-    return type("NS", (), kwargs)()

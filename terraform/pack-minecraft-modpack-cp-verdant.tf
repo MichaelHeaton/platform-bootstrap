@@ -6,20 +6,10 @@ locals {
     has_discussions     = true
     main_branch_ruleset = true
 
-    discussion_categories = [
-      {
-        name        = "Ideas"
-        slug        = "ideas"
-        description = "Balance, features, playtest feedback (not bug reports)"
-        emoji       = ":bulb:"
-      },
-      {
-        name        = "Mod suggestions"
-        slug        = "mod-suggestions"
-        description = "One mod per discussion; NeoForge 1.21.1 fit for CP Verdant"
-        emoji       = ":package:"
-      },
-    ]
+    # GitHub exposes no API to create discussion categories. "ideas" is a default
+    # category when Discussions is enabled; create "mod-suggestions" once in the
+    # repo UI (Settings → Discussions). Slugs verified by compliance_check.py.
+    # See docs/runbooks/05-specterrealm-pack-github-settings.md.
 
     # Remove Memex vault labels if they were copied onto this repo; do not recreate.
     labels_remove = [
