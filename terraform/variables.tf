@@ -68,6 +68,17 @@ variable "managed_repositories" {
 
     labels_remove = optional(list(string), [])
 
+    pages = optional(object({
+      build_type = optional(string, "legacy")
+      source = optional(object({
+        branch = string
+        path   = optional(string, "/")
+      }))
+      cname          = optional(string)
+      public         = optional(bool)
+      https_enforced = optional(bool)
+    }))
+
     main_branch_ruleset = optional(bool, false)
   }))
   description = "GitHub repositories to manage. Must NOT include platform-bootstrap. See ADR-004."

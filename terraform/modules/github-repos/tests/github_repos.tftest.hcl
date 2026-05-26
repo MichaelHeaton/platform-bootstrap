@@ -36,7 +36,54 @@ run "empty_repositories_succeeds" {
   }
 
   assert {
-    condition     = tomap({}) == { for k, r in github_repository.managed : k => r.node_id }
+    condition     = length(github_repository.managed) == 0
     error_message = "repository_ids must be an empty map when no repositories are provided"
+  }
+}
+
+run "pages_workflow_configures_repository_pages" {
+  command = plan
+
+  variables {
+    repositories = [
+      {
+        name        = "docs-site"
+        description = "Repository with GitHub Pages managed by Terraform"
+        visibility  = "private"
+        pages = {
+          build_type = "workflow"
+        }
+      }
+    ]
+    codeowners = ["@test-owner"]
+  }
+
+  assert {
+    condition     = github_repository_pages.managed["docs-site"].build_type == "workflow"
+    error_message = "workflow Pages config should create a github_repository_pages resource"
+  }
+}
+
+run "validation_rejects_workflow_pages_source" {
+  command = plan
+
+  expect_failures = [var.repositories]
+
+  variables {
+    repositories = [
+      {
+        name        = "docs-site"
+        description = "Repository with invalid workflow Pages source"
+        visibility  = "private"
+        pages = {
+          build_type = "workflow"
+          source = {
+            branch = "main"
+            path   = "/docs"
+          }
+        }
+      }
+    ]
+    codeowners = ["@test-owner"]
   }
 }

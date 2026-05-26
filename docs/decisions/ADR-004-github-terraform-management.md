@@ -17,6 +17,7 @@ All GitHub repositories are managed by Terraform using the `integrations/github`
 configured in the `terraform/modules/github-repos` module. The module manages:
 
 - Repository creation and settings (`github_repository`)
+- GitHub Pages settings for repositories that opt in (`github_repository_pages`)
 - Branch protection on `main` (PR required, stale review dismissal, code owner review required)
 - CODEOWNERS file initialized for each repository
 
@@ -42,7 +43,8 @@ compliance script checks that `platform-bootstrap` does NOT appear in any
 ## Consequences
 
 - All managed repositories have consistent branch protection, security scanning, and
-  CODEOWNERS from the moment of creation.
+  CODEOWNERS from the moment of creation. Repositories that opt in to GitHub Pages
+  have their Pages source/build settings managed by Terraform as well.
 - Adding a new GitHub repository requires a PR to platform-bootstrap. The
   `terraform-plan` workflow shows exactly what will be created before the PR is approved.
 - platform-bootstrap settings must be audited manually on a regular schedule. The compliance

@@ -32,3 +32,8 @@ output "service_lambda_boundary_arns" {
   description = "Map of service name to Lambda execution role permission boundary ARN."
   value       = { for k, m in module.service_accounts : k => m.lambda_boundary_arn }
 }
+
+output "github_pages_urls" {
+  description = "Map of repository name to GitHub Pages URL for repositories with Pages managed."
+  value       = module.github_repos.pages_urls
+}

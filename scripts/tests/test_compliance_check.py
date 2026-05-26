@@ -91,7 +91,7 @@ def minimal_repo(tmp_repo: Path) -> Path:
             }
             github = {
               source  = "integrations/github"
-              version = "~> 6.3"
+              version = "~> 6.12"
             }
           }
         }
