@@ -36,7 +36,7 @@ run "empty_repositories_succeeds" {
   }
 
   assert {
-    condition     = tomap({}) == { for k, r in github_repository.managed : k => r.node_id }
+    condition     = length(github_repository.managed) == 0
     error_message = "repository_ids must be an empty map when no repositories are provided"
   }
 }
