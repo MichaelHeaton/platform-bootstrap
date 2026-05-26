@@ -97,9 +97,9 @@ resource "aws_iam_policy" "lambda_boundary" {
         Resource = "arn:aws:events:*:${var.aws_account_id}:event-bus/*"
       },
       {
-        Sid    = "CloudWatchLogs"
-        Effect = "Allow"
-        Action = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+        Sid      = "CloudWatchLogs"
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
         Resource = "arn:aws:logs:*:${var.aws_account_id}:log-group:/aws/lambda/${var.service_name}-*"
       },
       {
@@ -117,9 +117,9 @@ resource "aws_iam_policy" "lambda_boundary" {
         Resource = "*"
       },
       {
-        Sid    = "SSMParameters"
-        Effect = "Allow"
-        Action = ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath"]
+        Sid      = "SSMParameters"
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath"]
         Resource = "arn:aws:ssm:*:${var.aws_account_id}:parameter/${var.service_name}/*"
       },
       {
@@ -327,9 +327,9 @@ resource "aws_iam_policy" "deploy" {
       {
         # PassRole lets CloudFormation hand the execution role to Lambda.
         # Scoped to service roles only, passed to Lambda and CF service principals.
-        Sid    = "IAMPassRole"
-        Effect = "Allow"
-        Action = ["iam:PassRole"]
+        Sid      = "IAMPassRole"
+        Effect   = "Allow"
+        Action   = ["iam:PassRole"]
         Resource = "arn:aws:iam::${var.aws_account_id}:role/${var.service_name}-*"
         Condition = {
           StringEquals = {
@@ -353,9 +353,9 @@ resource "aws_iam_policy" "deploy" {
 
       # ── SQS queues ────────────────────────────────────────────────────────────
       {
-        Sid    = "SQS"
-        Effect = "Allow"
-        Action = ["sqs:CreateQueue", "sqs:DeleteQueue", "sqs:SetQueueAttributes", "sqs:GetQueueAttributes", "sqs:TagQueue"]
+        Sid      = "SQS"
+        Effect   = "Allow"
+        Action   = ["sqs:CreateQueue", "sqs:DeleteQueue", "sqs:SetQueueAttributes", "sqs:GetQueueAttributes", "sqs:TagQueue"]
         Resource = "arn:aws:sqs:*:${var.aws_account_id}:${var.service_name}-*"
       },
 
@@ -372,17 +372,17 @@ resource "aws_iam_policy" "deploy" {
 
       # ── CloudWatch Logs ───────────────────────────────────────────────────────
       {
-        Sid    = "CloudWatchLogs"
-        Effect = "Allow"
-        Action = ["logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:TagResource", "logs:PutRetentionPolicy"]
+        Sid      = "CloudWatchLogs"
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:TagResource", "logs:PutRetentionPolicy"]
         Resource = "arn:aws:logs:*:${var.aws_account_id}:log-group:/aws/lambda/${var.service_name}-*"
       },
 
       # ── SSM parameters ────────────────────────────────────────────────────────
       {
-        Sid    = "SSMParameters"
-        Effect = "Allow"
-        Action = ["ssm:GetParameter", "ssm:PutParameter", "ssm:DeleteParameter", "ssm:AddTagsToResource"]
+        Sid      = "SSMParameters"
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter", "ssm:PutParameter", "ssm:DeleteParameter", "ssm:AddTagsToResource"]
         Resource = "arn:aws:ssm:*:${var.aws_account_id}:parameter/${var.service_name}/*"
       },
 
