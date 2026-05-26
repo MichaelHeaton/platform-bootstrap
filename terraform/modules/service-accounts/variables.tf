@@ -20,7 +20,7 @@ variable "aws_account_id" {
 
 variable "aws_region" {
   type        = string
-  description = "Primary AWS region. Used to scope regional resource ARNs in policies."
+  description = "AWS region for this service. Used to scope regional resource ARNs in policies."
 }
 
 variable "oidc_provider_arn" {
@@ -37,4 +37,28 @@ variable "allowed_ref" {
   type        = string
   default     = "refs/heads/main"
   description = "Git ref allowed to assume the deploy role (e.g. \"refs/heads/main\")."
+}
+
+variable "stack_name" {
+  type        = string
+  default     = null
+  description = "Exact SAM/CloudFormation stack name. Defaults to a service-name-prefixed wildcard for backwards compatibility."
+}
+
+variable "resource_name_prefixes" {
+  type        = list(string)
+  default     = []
+  description = "AWS resource name prefixes owned by the service (for Lambda functions, logs, queues, and data resources). Defaults to service_name plus a trailing hyphen."
+}
+
+variable "execution_role_name_prefixes" {
+  type        = list(string)
+  default     = []
+  description = "IAM execution role name prefixes that CloudFormation/SAM may create for this service. Defaults to service_name plus a trailing hyphen."
+}
+
+variable "ssm_parameter_names" {
+  type        = list(string)
+  default     = []
+  description = "SSM parameter names the SAM deployment may read. Names may include a leading slash and may use IAM wildcards. Defaults to /<service_name>/*."
 }

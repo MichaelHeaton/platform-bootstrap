@@ -58,7 +58,7 @@ resource "aws_iam_role" "pipeline" {
             # path is always fully-qualified with no wildcards.
             "token.actions.githubusercontent.com:sub" = [
               for ref in each.value.allowed_refs :
-              "repo:${var.github_org}/${each.value.repo_name}:${ref}"
+              "repo:${var.github_org}/${each.value.repo_name}:ref:${ref}"
             ]
           }
         }

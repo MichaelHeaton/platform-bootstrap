@@ -24,18 +24,35 @@ module "oidc_roles" {
   pipelines        = var.pipelines
 }
 
+locals {
+  service_accounts_by_name = {
+    for service in var.service_accounts : service.service_name => service
+  }
+
+  service_artifact_bucket_arns = flatten([
+    for service in var.service_accounts : [
+      "arn:aws:s3:::${service.artifact_bucket_name}",
+      "arn:aws:s3:::${service.artifact_bucket_name}/*",
+    ]
+  ])
+}
+
 module "service_accounts" {
   source   = "./modules/service-accounts"
   for_each = { for s in var.service_accounts : s.service_name => s }
 
-  service_name         = each.value.service_name
-  repo_name            = each.value.repo_name
-  github_org           = var.github_org
-  aws_account_id       = var.aws_account_id
-  aws_region           = var.aws_region
-  oidc_provider_arn    = module.oidc_roles.oidc_provider_arn
-  artifact_bucket_name = each.value.artifact_bucket_name
-  allowed_ref          = each.value.allowed_ref
+  service_name                 = each.value.service_name
+  repo_name                    = each.value.repo_name
+  github_org                   = var.github_org
+  aws_account_id               = var.aws_account_id
+  aws_region                   = coalesce(each.value.aws_region, var.aws_region)
+  oidc_provider_arn            = module.oidc_roles.oidc_provider_arn
+  artifact_bucket_name         = each.value.artifact_bucket_name
+  allowed_ref                  = each.value.allowed_ref
+  stack_name                   = each.value.stack_name
+  resource_name_prefixes       = each.value.resource_name_prefixes
+  execution_role_name_prefixes = each.value.execution_role_name_prefixes
+  ssm_parameter_names          = each.value.ssm_parameter_names
 }
 
 locals {
@@ -57,12 +74,32 @@ module "github_repos" {
   github_token = var.github_token
 }
 
+resource "github_actions_secret" "service_deploy_role_arn" {
+  for_each = module.service_accounts
+
+  repository      = local.service_accounts_by_name[each.key].repo_name
+  secret_name     = "AWS_DEPLOY_ROLE_ARN"
+  plaintext_value = each.value.deploy_role_arn
+
+  depends_on = [module.github_repos]
+}
+
+resource "github_actions_variable" "service_sam_bucket" {
+  for_each = module.service_accounts
+
+  repository    = local.service_accounts_by_name[each.key].repo_name
+  variable_name = "AWS_SAM_BUCKET"
+  value         = each.value.artifact_bucket_name
+
+  depends_on = [module.github_repos]
+}
+
 # ── Bootstrap CI role permissions ─────────────────────────────────────────────
 # The platform-bootstrap-github-actions role was created manually during the
 # bootstrap sequence (see docs/runbooks/02-bootstrap.md). The state-path policy
 # was also created manually and imported. This block adds the management
 # permissions the role needs to run terraform plan/apply in CI:
-# - Read/write the state bucket at any path (not just platform-bootstrap/)
+# - Read/write the state bucket and managed service artifact buckets
 # - Describe and manage IAM roles, policies, and OIDC providers
 # - sts:GetCallerIdentity for provider authentication checks
 
@@ -77,10 +114,13 @@ resource "aws_iam_policy" "bootstrap_ci_management" {
         Sid    = "S3BucketManagement"
         Effect = "Allow"
         Action = ["s3:*"]
-        Resource = [
-          module.state_bucket.bucket_arn,
-          "${module.state_bucket.bucket_arn}/*",
-        ]
+        Resource = concat(
+          [
+            module.state_bucket.bucket_arn,
+            "${module.state_bucket.bucket_arn}/*",
+          ],
+          local.service_artifact_bucket_arns
+        )
       },
       {
         Sid    = "IAMOIDCProvider"
@@ -96,8 +136,11 @@ resource "aws_iam_policy" "bootstrap_ci_management" {
         Action = ["iam:*"]
         Resource = [
           "arn:aws:iam::${var.aws_account_id}:role/*-github-actions",
+          "arn:aws:iam::${var.aws_account_id}:role/*-github-actions-deploy",
           "arn:aws:iam::${var.aws_account_id}:role/platform-bootstrap-*",
           "arn:aws:iam::${var.aws_account_id}:policy/*-state-access",
+          "arn:aws:iam::${var.aws_account_id}:policy/*-lambda-boundary",
+          "arn:aws:iam::${var.aws_account_id}:policy/*-sam-deploy",
           "arn:aws:iam::${var.aws_account_id}:policy/platform-bootstrap-*",
         ]
       },

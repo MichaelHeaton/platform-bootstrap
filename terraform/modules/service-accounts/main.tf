@@ -3,6 +3,39 @@ locals {
   # as the condition value in the deploy role's IAM statements.
   boundary_policy_name = "${var.service_name}-lambda-boundary"
   boundary_policy_arn  = "arn:aws:iam::${var.aws_account_id}:policy/${local.boundary_policy_name}"
+
+  stack_name_pattern = coalesce(var.stack_name, "${var.service_name}-*")
+
+  resource_name_prefixes = length(var.resource_name_prefixes) > 0 ? var.resource_name_prefixes : ["${var.service_name}-"]
+  resource_name_patterns = [for prefix in local.resource_name_prefixes : "${prefix}*"]
+
+  execution_role_name_prefixes = length(var.execution_role_name_prefixes) > 0 ? var.execution_role_name_prefixes : ["${var.service_name}-"]
+  execution_role_arns          = [for prefix in local.execution_role_name_prefixes : "arn:aws:iam::${var.aws_account_id}:role/${prefix}*"]
+
+  lambda_function_arns = flatten([
+    for pattern in local.resource_name_patterns : [
+      "arn:aws:lambda:*:${var.aws_account_id}:function:${pattern}",
+      "arn:aws:lambda:*:${var.aws_account_id}:function:${pattern}:*",
+    ]
+  ])
+
+  log_group_arns = flatten([
+    for pattern in local.resource_name_patterns : [
+      "arn:aws:logs:*:${var.aws_account_id}:log-group:/aws/lambda/${pattern}",
+      "arn:aws:logs:*:${var.aws_account_id}:log-group:/aws/lambda/${pattern}:*",
+    ]
+  ])
+
+  ssm_parameter_names = length(var.ssm_parameter_names) > 0 ? var.ssm_parameter_names : ["/${var.service_name}/*"]
+  ssm_parameter_arns  = [for name in local.ssm_parameter_names : "arn:aws:ssm:*:${var.aws_account_id}:parameter/${trimprefix(name, "/")}"]
+
+  common_tags = {
+    environment = "prod"
+    cloud       = "aws"
+    function    = "deploy"
+    managed-by  = "terraform"
+    service     = var.service_name
+  }
 }
 
 # ── SAM artifacts bucket ───────────────────────────────────────────────────────
@@ -66,20 +99,24 @@ resource "aws_iam_policy" "lambda_boundary" {
           "dynamodb:DeleteItem", "dynamodb:Query", "dynamodb:Scan",
           "dynamodb:BatchGetItem", "dynamodb:BatchWriteItem",
         ]
-        Resource = [
-          "arn:aws:dynamodb:*:${var.aws_account_id}:table/${var.service_name}-*",
-          "arn:aws:dynamodb:*:${var.aws_account_id}:table/${var.service_name}-*/index/*",
-        ]
+        Resource = flatten([
+          for pattern in local.resource_name_patterns : [
+            "arn:aws:dynamodb:*:${var.aws_account_id}:table/${pattern}",
+            "arn:aws:dynamodb:*:${var.aws_account_id}:table/${pattern}/index/*",
+          ]
+        ])
       },
       {
         Sid    = "S3ServiceBuckets"
         Effect = "Allow"
         Action = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject", "s3:ListBucket"]
         # Scoped to service-owned data buckets only — not the artifacts bucket
-        Resource = [
-          "arn:aws:s3:::${var.service_name}-*",
-          "arn:aws:s3:::${var.service_name}-*/*",
-        ]
+        Resource = flatten([
+          for pattern in local.resource_name_patterns : [
+            "arn:aws:s3:::${pattern}",
+            "arn:aws:s3:::${pattern}/*",
+          ]
+        ])
       },
       {
         Sid    = "SQS"
@@ -88,7 +125,7 @@ resource "aws_iam_policy" "lambda_boundary" {
           "sqs:SendMessage", "sqs:ReceiveMessage", "sqs:DeleteMessage",
           "sqs:GetQueueAttributes", "sqs:GetQueueUrl", "sqs:ChangeMessageVisibility",
         ]
-        Resource = "arn:aws:sqs:*:${var.aws_account_id}:${var.service_name}-*"
+        Resource = [for pattern in local.resource_name_patterns : "arn:aws:sqs:*:${var.aws_account_id}:${pattern}"]
       },
       {
         Sid      = "EventBridgePutEvents"
@@ -100,7 +137,7 @@ resource "aws_iam_policy" "lambda_boundary" {
         Sid      = "CloudWatchLogs"
         Effect   = "Allow"
         Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
-        Resource = "arn:aws:logs:*:${var.aws_account_id}:log-group:/aws/lambda/${var.service_name}-*"
+        Resource = local.log_group_arns
       },
       {
         # Required for VPC-attached Lambdas (Aurora access). Resource cannot be
@@ -120,13 +157,13 @@ resource "aws_iam_policy" "lambda_boundary" {
         Sid      = "SSMParameters"
         Effect   = "Allow"
         Action   = ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath"]
-        Resource = "arn:aws:ssm:*:${var.aws_account_id}:parameter/${var.service_name}/*"
+        Resource = local.ssm_parameter_arns
       },
       {
         Sid      = "RDSIAMAuth"
         Effect   = "Allow"
         Action   = ["rds-db:connect"]
-        Resource = "arn:aws:rds-db:*:${var.aws_account_id}:dbuser:*/${var.service_name}_*"
+        Resource = [for prefix in local.resource_name_prefixes : "arn:aws:rds-db:*:${var.aws_account_id}:dbuser:*/${replace(trimsuffix(prefix, "-"), "-", "_")}_*"]
       },
       {
         Sid      = "STSCallerIdentity"
@@ -137,9 +174,7 @@ resource "aws_iam_policy" "lambda_boundary" {
     ]
   })
 
-  tags = {
-    service = var.service_name
-  }
+  tags = local.common_tags
 }
 
 # ── GitHub Actions deploy role ─────────────────────────────────────────────────
@@ -151,7 +186,7 @@ resource "aws_iam_policy" "lambda_boundary" {
 
 resource "aws_iam_role" "deploy" {
   name        = "${var.service_name}-github-actions-deploy"
-  description = "Assumed by GitHub Actions to deploy ${var.service_name} via SAM. Scoped to ${var.service_name}-* resources."
+  description = "Assumed by GitHub Actions to deploy ${var.service_name} via SAM. Scoped to configured service resources."
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -168,16 +203,14 @@ resource "aws_iam_role" "deploy" {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
           }
           StringLike = {
-            "token.actions.githubusercontent.com:sub" = "repo:${var.github_org}/${var.repo_name}:${var.allowed_ref}"
+            "token.actions.githubusercontent.com:sub" = "repo:${var.github_org}/${var.repo_name}:ref:${var.allowed_ref}"
           }
         }
       }
     ]
   })
 
-  tags = {
-    service = var.service_name
-  }
+  tags = local.common_tags
 }
 
 resource "aws_iam_policy" "deploy" {
@@ -192,20 +225,31 @@ resource "aws_iam_policy" "deploy" {
       # Deliberately excludes DeleteBucket, PutBucketPolicy, PutBucketVersioning,
       # PutEncryptionConfiguration — bucket lifecycle is owned by platform-bootstrap.
       {
-        Sid    = "SAMArtifactsBucketObjects"
+        Sid    = "SAMArtifactsBucket"
         Effect = "Allow"
-        Action = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject", "s3:ListBucket"]
-        Resource = [
-          aws_s3_bucket.artifacts.arn,
-          "${aws_s3_bucket.artifacts.arn}/*",
+        Action = [
+          "s3:GetBucketLocation",
+          "s3:ListBucket",
+          "s3:ListBucketMultipartUploads",
         ]
+        Resource = aws_s3_bucket.artifacts.arn
+      },
+      {
+        Sid    = "SAMArtifactsObjects"
+        Effect = "Allow"
+        Action = [
+          "s3:AbortMultipartUpload",
+          "s3:DeleteObject",
+          "s3:GetObject",
+          "s3:ListMultipartUploadParts",
+          "s3:PutObject",
+        ]
+        Resource = "${aws_s3_bucket.artifacts.arn}/*"
       },
 
       # ── CloudFormation ────────────────────────────────────────────────────────
-      # SAM uses CloudFormation stacks. Stack names get a `memex-*` prefix by
-      # convention (enforced in the service's Makefile/deploy commands).
-      # SAM also creates transform stacks with generated names — hence the broader
-      # scope on describe/validate actions.
+      # SAM uses CloudFormation stacks. Change sets have generated names, but the
+      # stack itself is scoped to the configured service stack name/pattern.
       {
         Sid    = "CloudFormationServiceStacks"
         Effect = "Allow"
@@ -216,24 +260,17 @@ resource "aws_iam_policy" "deploy" {
           "cloudformation:CreateChangeSet",
           "cloudformation:ExecuteChangeSet",
           "cloudformation:DeleteChangeSet",
-        ]
-        Resource = "arn:aws:cloudformation:*:${var.aws_account_id}:stack/${var.service_name}-*"
-      },
-      {
-        Sid    = "CloudFormationDescribe"
-        Effect = "Allow"
-        Action = [
           "cloudformation:DescribeStacks",
           "cloudformation:DescribeStackEvents",
           "cloudformation:DescribeStackResources",
           "cloudformation:DescribeChangeSet",
           "cloudformation:GetTemplate",
-          "cloudformation:ValidateTemplate",
-          "cloudformation:ListStacks",
           "cloudformation:ListStackResources",
         ]
-        # SAM describe calls reference generated names — cannot scope narrower here
-        Resource = "*"
+        Resource = [
+          "arn:aws:cloudformation:*:${var.aws_account_id}:stack/${local.stack_name_pattern}/*",
+          "arn:aws:cloudformation:*:${var.aws_account_id}:changeSet/*",
+        ]
       },
 
       # ── Lambda ────────────────────────────────────────────────────────────────
@@ -241,25 +278,27 @@ resource "aws_iam_policy" "deploy" {
         Sid    = "Lambda"
         Effect = "Allow"
         Action = [
+          "lambda:AddPermission",
+          "lambda:CreateAlias",
           "lambda:CreateFunction",
-          "lambda:UpdateFunctionCode",
-          "lambda:UpdateFunctionConfiguration",
           "lambda:DeleteFunction",
+          "lambda:DeleteAlias",
+          "lambda:GetAlias",
           "lambda:GetFunction",
           "lambda:GetFunctionConfiguration",
-          "lambda:AddPermission",
+          "lambda:GetPolicy",
+          "lambda:ListAliases",
+          "lambda:ListTags",
+          "lambda:ListVersionsByFunction",
+          "lambda:PublishVersion",
           "lambda:RemovePermission",
           "lambda:TagResource",
-          "lambda:PublishVersion",
-          "lambda:CreateAlias",
+          "lambda:UntagResource",
           "lambda:UpdateAlias",
-          "lambda:DeleteAlias",
-          "lambda:CreateEventSourceMapping",
-          "lambda:UpdateEventSourceMapping",
-          "lambda:DeleteEventSourceMapping",
-          "lambda:ListEventSourceMappings",
+          "lambda:UpdateFunctionCode",
+          "lambda:UpdateFunctionConfiguration",
         ]
-        Resource = "arn:aws:lambda:*:${var.aws_account_id}:function:${var.service_name}-*"
+        Resource = local.lambda_function_arns
       },
 
       # ── IAM execution roles — boundary required ───────────────────────────────
@@ -267,15 +306,13 @@ resource "aws_iam_policy" "deploy" {
       # those roles carry the permission boundary created above. This prevents a
       # compromised CI token from creating a Lambda with elevated privileges.
       {
-        Sid    = "IAMExecutionRolesMutate"
+        Sid    = "IAMExecutionRolesCreateWithBoundary"
         Effect = "Allow"
         Action = [
           "iam:CreateRole",
-          "iam:AttachRolePolicy",
-          "iam:PutRolePolicy",
-          "iam:TagRole",
+          "iam:PutRolePermissionsBoundary",
         ]
-        Resource = "arn:aws:iam::${var.aws_account_id}:role/${var.service_name}-*"
+        Resource = local.execution_role_arns
         Condition = {
           StringEquals = {
             # Boundary must be attached — enforced at the IAM API level by AWS,
@@ -285,32 +322,37 @@ resource "aws_iam_policy" "deploy" {
         }
       },
       {
-        # Detach/delete do not mutate the role's effective permissions — no
-        # boundary condition needed. Scoped to service prefix.
-        Sid    = "IAMExecutionRolesDelete"
+        Sid    = "IAMExecutionRolesMutate"
         Effect = "Allow"
         Action = [
           "iam:DeleteRole",
-          "iam:DetachRolePolicy",
           "iam:DeleteRolePolicy",
+          "iam:TagRole",
+          "iam:UntagRole",
+          "iam:UpdateAssumeRolePolicy",
+          "iam:UpdateRole",
         ]
-        Resource = "arn:aws:iam::${var.aws_account_id}:role/${var.service_name}-*"
+        Resource = local.execution_role_arns
       },
       {
-        # Inline and managed policies for execution roles
-        Sid    = "IAMPolicies"
+        Sid    = "IAMExecutionRoleManagedPolicies"
         Effect = "Allow"
         Action = [
-          "iam:CreatePolicy",
-          "iam:DeletePolicy",
-          "iam:GetPolicy",
-          "iam:GetPolicyVersion",
-          "iam:CreatePolicyVersion",
-          "iam:DeletePolicyVersion",
-          "iam:ListPolicyVersions",
-          "iam:TagPolicy",
+          "iam:AttachRolePolicy",
+          "iam:DetachRolePolicy",
         ]
-        Resource = "arn:aws:iam::${var.aws_account_id}:policy/${var.service_name}-*"
+        Resource = local.execution_role_arns
+        Condition = {
+          StringEquals = {
+            "iam:PolicyARN" = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+          }
+        }
+      },
+      {
+        Sid      = "IAMExecutionRoleInlinePolicies"
+        Effect   = "Allow"
+        Action   = ["iam:PutRolePolicy", "iam:DeleteRolePolicy"]
+        Resource = local.execution_role_arns
       },
       {
         # Read-only IAM — needed by SAM/CloudFormation to check existing resources
@@ -321,8 +363,9 @@ resource "aws_iam_policy" "deploy" {
           "iam:GetRolePolicy",
           "iam:ListAttachedRolePolicies",
           "iam:ListRolePolicies",
+          "iam:ListRoleTags",
         ]
-        Resource = "arn:aws:iam::${var.aws_account_id}:role/${var.service_name}-*"
+        Resource = local.execution_role_arns
       },
       {
         # PassRole lets CloudFormation hand the execution role to Lambda.
@@ -330,13 +373,10 @@ resource "aws_iam_policy" "deploy" {
         Sid      = "IAMPassRole"
         Effect   = "Allow"
         Action   = ["iam:PassRole"]
-        Resource = "arn:aws:iam::${var.aws_account_id}:role/${var.service_name}-*"
+        Resource = local.execution_role_arns
         Condition = {
           StringEquals = {
-            "iam:PassedToService" = [
-              "lambda.amazonaws.com",
-              "cloudformation.amazonaws.com",
-            ]
+            "iam:PassedToService" = "lambda.amazonaws.com"
           }
         }
       },
@@ -345,10 +385,22 @@ resource "aws_iam_policy" "deploy" {
       # API Gateway resource ARNs don't carry a service prefix — cannot scope
       # narrower than this without breaking SAM's HTTP API resource creation.
       {
-        Sid      = "APIGateway"
-        Effect   = "Allow"
-        Action   = ["apigateway:*"]
-        Resource = "arn:aws:apigateway:${var.aws_region}::*"
+        Sid    = "APIGateway"
+        Effect = "Allow"
+        Action = [
+          "apigateway:DELETE",
+          "apigateway:GET",
+          "apigateway:PATCH",
+          "apigateway:POST",
+          "apigateway:PUT",
+          "apigateway:TagResource",
+          "apigateway:UntagResource",
+        ]
+        Resource = [
+          "arn:aws:apigateway:${var.aws_region}::/apis",
+          "arn:aws:apigateway:${var.aws_region}::/apis/*",
+          "arn:aws:apigateway:${var.aws_region}::/tags/*",
+        ]
       },
 
       # ── SQS queues ────────────────────────────────────────────────────────────
@@ -356,7 +408,7 @@ resource "aws_iam_policy" "deploy" {
         Sid      = "SQS"
         Effect   = "Allow"
         Action   = ["sqs:CreateQueue", "sqs:DeleteQueue", "sqs:SetQueueAttributes", "sqs:GetQueueAttributes", "sqs:TagQueue"]
-        Resource = "arn:aws:sqs:*:${var.aws_account_id}:${var.service_name}-*"
+        Resource = [for pattern in local.resource_name_patterns : "arn:aws:sqs:*:${var.aws_account_id}:${pattern}"]
       },
 
       # ── EventBridge ───────────────────────────────────────────────────────────
@@ -364,26 +416,28 @@ resource "aws_iam_policy" "deploy" {
         Sid    = "EventBridge"
         Effect = "Allow"
         Action = ["events:PutRule", "events:DeleteRule", "events:DescribeRule", "events:PutTargets", "events:RemoveTargets", "events:TagResource"]
-        Resource = [
-          "arn:aws:events:*:${var.aws_account_id}:rule/${var.service_name}-*",
-          "arn:aws:events:*:${var.aws_account_id}:event-bus/${var.service_name}-*",
-        ]
+        Resource = flatten([
+          for pattern in local.resource_name_patterns : [
+            "arn:aws:events:*:${var.aws_account_id}:rule/${pattern}",
+            "arn:aws:events:*:${var.aws_account_id}:event-bus/${pattern}",
+          ]
+        ])
       },
 
       # ── CloudWatch Logs ───────────────────────────────────────────────────────
       {
         Sid      = "CloudWatchLogs"
         Effect   = "Allow"
-        Action   = ["logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:TagResource", "logs:PutRetentionPolicy"]
-        Resource = "arn:aws:logs:*:${var.aws_account_id}:log-group:/aws/lambda/${var.service_name}-*"
+        Action   = ["logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:DeleteRetentionPolicy", "logs:PutRetentionPolicy", "logs:TagResource", "logs:UntagResource"]
+        Resource = local.log_group_arns
       },
 
       # ── SSM parameters ────────────────────────────────────────────────────────
       {
         Sid      = "SSMParameters"
         Effect   = "Allow"
-        Action   = ["ssm:GetParameter", "ssm:PutParameter", "ssm:DeleteParameter", "ssm:AddTagsToResource"]
-        Resource = "arn:aws:ssm:*:${var.aws_account_id}:parameter/${var.service_name}/*"
+        Action   = ["ssm:GetParameter", "ssm:GetParameters"]
+        Resource = local.ssm_parameter_arns
       },
 
       # ── Identity ──────────────────────────────────────────────────────────────
@@ -396,9 +450,7 @@ resource "aws_iam_policy" "deploy" {
     ]
   })
 
-  tags = {
-    service = var.service_name
-  }
+  tags = local.common_tags
 }
 
 resource "aws_iam_role_policy_attachment" "deploy" {

@@ -6,10 +6,15 @@ service_accounts = [
   # The deploy role is scoped to {service_name}-* resources and cannot delete the bucket or modify IAM
   # outside the service prefix. The permission boundary caps what Lambda execution roles can ever do.
   {
-    service_name         = "memex-suite"
-    repo_name            = "memex-suite"
-    artifact_bucket_name = "memex-suite-sam-artifacts"
-    allowed_ref          = "refs/heads/main"
+    service_name                 = "memex-suite"
+    repo_name                    = "memex-suite"
+    artifact_bucket_name         = "memex-suite-sam-artifacts"
+    allowed_ref                  = "refs/heads/main"
+    aws_region                   = "us-east-1"
+    stack_name                   = "memex-prod"
+    resource_name_prefixes       = ["memex-"]
+    execution_role_name_prefixes = ["memex-prod-"]
+    ssm_parameter_names          = ["/memex/database_url"]
   },
 ]
 
