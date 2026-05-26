@@ -6,6 +6,10 @@ locals {
     has_discussions     = true
     main_branch_ruleset = true
 
+    pages = {
+      build_type = "workflow"
+    }
+
     # GitHub exposes no API to create discussion categories. "ideas" is a default
     # category when Discussions is enabled; create "mod-suggestions" once in the
     # repo UI (Settings → Discussions). Slugs verified by compliance_check.py.

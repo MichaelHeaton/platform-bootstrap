@@ -17,6 +17,7 @@ Terraform — not the GitHub UI (except discussion categories; see below).
    `terraform/pack-<repo-name>.tf` and adjust:
    - `pack_settings_*` local name
    - `labels` / `labels_remove` as needed
+   - `pages` if GitHub Pages should be enabled for the pack repo
    - Add required discussion slugs to `scripts/github_repo_extras.py` → `PACK_DISCUSSION_SLUGS`
 2. Wire the pack in `terraform/main.tf` `managed_repositories_resolved`:
 
@@ -27,7 +28,7 @@ Terraform — not the GitHub UI (except discussion categories; see below).
    ```
 
 3. Open a PR to **platform-bootstrap**. Review `terraform plan` (expect `has_discussions`,
-   `github_issue_label`, optional `github_repository_ruleset`).
+   `github_issue_label`, optional `github_repository_pages`, optional `github_repository_ruleset`).
 4. Merge — **terraform-apply** runs on `main`.
 5. **Discussion categories (one-time UI):** GitHub has no public API to create categories.
    After apply enables Discussions:
@@ -49,12 +50,25 @@ Unless overridden per repo:
 | `main` branch protection | PR required, 0 approvals, no force-push, no delete |
 
 Pack repos add: **Discussions**, **labels**, optional **ruleset**
-(`deletion` + `non_fast_forward` on `main`).
+(`deletion` + `non_fast_forward` on `main`), and optional **GitHub Pages**.
+
+For CP Verdant, Pages uses the GitHub Actions build type:
+
+```hcl
+pages = {
+  build_type = "workflow"
+}
+```
+
+If Pages was enabled in the GitHub UI before Terraform management, add a declarative
+`import` block so the first apply adopts the existing Pages site instead of trying to create it.
+For CP Verdant this is tracked in `terraform/imports.tf`.
 
 ## Verify after apply
 
 ```bash
 gh api repos/MichaelHeaton/<repo> --jq '{has_discussions, delete_branch_on_merge}'
+gh api repos/MichaelHeaton/<repo>/pages --jq '{build_type, html_url, source, status}'
 gh label list --repo MichaelHeaton/<repo> --limit 30
 GITHUB_ORG=MichaelHeaton python3 scripts/github_repo_extras.py verify-discussion-categories --repo <repo>
 ```

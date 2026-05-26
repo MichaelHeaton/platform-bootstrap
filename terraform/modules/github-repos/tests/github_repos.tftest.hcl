@@ -40,3 +40,26 @@ run "empty_repositories_succeeds" {
     error_message = "repository_ids must be an empty map when no repositories are provided"
   }
 }
+
+run "pages_workflow_configures_repository_pages" {
+  command = plan
+
+  variables {
+    repositories = [
+      {
+        name        = "docs-site"
+        description = "Repository with GitHub Pages managed by Terraform"
+        visibility  = "private"
+        pages = {
+          build_type = "workflow"
+        }
+      }
+    ]
+    codeowners = ["@test-owner"]
+  }
+
+  assert {
+    condition     = github_repository_pages.managed["docs-site"].build_type == "workflow"
+    error_message = "workflow Pages config should create a github_repository_pages resource"
+  }
+}

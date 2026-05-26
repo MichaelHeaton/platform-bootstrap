@@ -11,7 +11,8 @@ for the full reasoning.
 ## What This Repository Does
 
 - Manages the S3 bucket used for all Terraform remote state storage across every project and environment
-- Manages all GitHub repositories in the organization via the Terraform `integrations/github` provider
+- Manages all GitHub repositories in the organization via the Terraform `integrations/github` provider,
+  including optional GitHub Pages settings for repositories that opt in
 - Manages OIDC trust relationships between GitHub Actions and AWS so pipelines never hold static credentials
 - Defines one IAM role per pipeline with explicit least-privilege S3 scoping to that pipeline's state path
 - Runs compliance drift detection against its own configuration and the live AWS and GitHub state
