@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- SpecterRealm pack GitHub settings for `minecraft-modpack-cp-verdant`
+  - Discussions + `ideas` / `mod-suggestions` categories (`scripts/github_repo_extras.py`)
+  - Pack issue labels and optional `main` ruleset (deletion + non-fast-forward)
+  - Runbook: `docs/runbooks/05-specterrealm-pack-github-settings.md`
 - Initial Terraform module structure for S3 state storage (ADR-001, ADR-003)
   - Single S3 bucket with versioning, encryption, and HTTPS-only bucket policy
   - Flat `{environment}-{cloud}-{function}/terraform.tfstate` key convention

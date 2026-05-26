@@ -5,6 +5,28 @@ variable "repositories" {
     visibility     = string
     topics         = optional(list(string), [])
     default_branch = optional(string, "main")
+
+    has_issues      = optional(bool, true)
+    has_wiki        = optional(bool, false)
+    has_projects    = optional(bool, false)
+    has_discussions = optional(bool, false)
+
+    labels = optional(list(object({
+      name        = string
+      color       = string
+      description = optional(string, "")
+    })), [])
+
+    labels_remove = optional(list(string), [])
+
+    discussion_categories = optional(list(object({
+      name        = string
+      slug        = optional(string)
+      description = string
+      emoji       = optional(string, "")
+    })), [])
+
+    main_branch_ruleset = optional(bool, false)
   }))
   description = "Repositories to manage. Must NOT include platform-bootstrap (see ADR-004)."
 
@@ -22,4 +44,15 @@ variable "repositories" {
 variable "codeowners" {
   type        = list(string)
   description = "GitHub handles to list as owners in CODEOWNERS (e.g. [\"@MichaelHeaton\"])."
+}
+
+variable "github_org" {
+  type        = string
+  description = "GitHub organization or user that owns managed repositories."
+}
+
+variable "github_token" {
+  type        = string
+  sensitive   = true
+  description = "GitHub token for local-exec extras (discussion categories, label removal). Set via TF_VAR_github_token in CI."
 }

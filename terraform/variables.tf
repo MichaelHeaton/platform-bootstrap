@@ -41,6 +41,12 @@ variable "service_accounts" {
   default     = []
 }
 
+variable "github_token" {
+  type        = string
+  sensitive   = true
+  description = "GitHub PAT for Terraform extras (discussion categories). Supplied as TF_VAR_github_token in CI."
+}
+
 variable "managed_repositories" {
   type = list(object({
     name           = string
@@ -48,6 +54,28 @@ variable "managed_repositories" {
     visibility     = string
     topics         = optional(list(string), [])
     default_branch = optional(string, "main")
+
+    has_issues      = optional(bool, true)
+    has_wiki        = optional(bool, false)
+    has_projects    = optional(bool, false)
+    has_discussions = optional(bool, false)
+
+    labels = optional(list(object({
+      name        = string
+      color       = string
+      description = optional(string, "")
+    })), [])
+
+    labels_remove = optional(list(string), [])
+
+    discussion_categories = optional(list(object({
+      name        = string
+      slug        = optional(string)
+      description = string
+      emoji       = optional(string, "")
+    })), [])
+
+    main_branch_ruleset = optional(bool, false)
   }))
   description = "GitHub repositories to manage. Must NOT include platform-bootstrap. See ADR-004."
   default     = []
