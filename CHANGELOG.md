@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Pack discussion categories: GitHub has no create-category API — verify slugs in compliance
+  instead of Terraform `local-exec` (fixes post-merge apply error on `mod-suggestions`)
+- Remove duplicate `GITHUB_TOKEN` key in `terraform-plan.yml` (invalid workflow on `main` push)
+- Terraform Apply job now fails when apply step fails (was masked by `continue-on-error`)
+
 ### Added
 
 - SpecterRealm pack GitHub settings for `minecraft-modpack-cp-verdant`

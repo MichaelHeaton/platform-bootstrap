@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -1074,6 +1075,51 @@ def check_repos_have_push_protection(org: str, token: str) -> List[CheckResult]:
         ]
 
 
+def check_pack_discussion_categories(org: str) -> List[CheckResult]:
+    """Pack repos with Discussions enabled must have required category slugs (UI-created)."""
+    name = "PACK_DISCUSSION_CATEGORIES"
+    script = REPO_ROOT / "scripts" / "github_repo_extras.py"
+    if not script.is_file():
+        return [
+            _fail(
+                name,
+                f"Missing script: {script}",
+                what_is_wrong="github_repo_extras.py is required to verify pack discussion categories.",
+                how_to_fix="Restore scripts/github_repo_extras.py from the platform-bootstrap repo.",
+            )
+        ]
+
+    env = {**os.environ, "GITHUB_ORG": org}
+    proc = subprocess.run(
+        [sys.executable, str(script), "verify-discussion-categories"],
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    results: List[CheckResult] = []
+    if proc.returncode == 0:
+        for line in proc.stdout.splitlines():
+            if line.startswith("OK "):
+                results.append(_pass(name, line.removeprefix("OK ")))
+        if not results:
+            results.append(_pass(name, "all pack discussion categories present"))
+        return results
+
+    details = (proc.stderr or proc.stdout or "verify-discussion-categories failed").strip()
+    return [
+        _fail(
+            name,
+            "pack discussion category check failed",
+            what_is_wrong=details,
+            how_to_fix=(
+                "Enable Discussions via Terraform, then create missing categories in "
+                "GitHub → repo Settings → Discussions. See docs/runbooks/05-specterrealm-pack-github-settings.md"
+            ),
+            runbook="See runbook: docs/runbooks/05-specterrealm-pack-github-settings.md",
+        )
+    ]
+
+
 def check_repos_have_codeowners(org: str, token: str) -> List[CheckResult]:
     name = "REPOS_HAVE_CODEOWNERS"
     results: List[CheckResult] = []
@@ -1307,6 +1353,7 @@ def run_full_checks(
             results.extend(check_repos_have_secret_scanning(github_org, github_token))
             results.extend(check_repos_have_push_protection(github_org, github_token))
             results.extend(check_repos_have_codeowners(github_org, github_token))
+            results.extend(check_pack_discussion_categories(github_org))
 
     return results
 

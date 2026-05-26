@@ -68,13 +68,6 @@ variable "managed_repositories" {
 
     labels_remove = optional(list(string), [])
 
-    discussion_categories = optional(list(object({
-      name        = string
-      slug        = optional(string)
-      description = string
-      emoji       = optional(string, "")
-    })), [])
-
     main_branch_ruleset = optional(bool, false)
   }))
   description = "GitHub repositories to manage. Must NOT include platform-bootstrap. See ADR-004."

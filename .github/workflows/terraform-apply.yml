@@ -105,6 +105,10 @@ jobs:
           terraform -chdir=terraform apply -auto-approve tfplan \
             2>&1 | tee /tmp/tfapply_output.txt
 
+      - name: Fail job if apply failed
+        if: steps.apply.outcome != 'success'
+        run: exit 1
+
       # -----------------------------------------------------------------------
       # 7. Post apply output as a comment on the PR that triggered this push.
       #    Uses listPullRequestsAssociatedWithCommit to find the right PR.
