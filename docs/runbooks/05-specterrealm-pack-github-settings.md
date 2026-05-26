@@ -52,13 +52,19 @@ Unless overridden per repo:
 Pack repos add: **Discussions**, **labels**, optional **ruleset**
 (`deletion` + `non_fast_forward` on `main`), and optional **GitHub Pages**.
 
-For CP Verdant, Pages uses the GitHub Actions build type:
+For CP Verdant, Pages uses **GitHub Actions** as the Pages source. The pack repo's
+Pages workflow publishes the `docs/` directory by uploading it as the Pages artifact;
+that `docs/` path is owned by the workflow in the pack repo, not by the repository
+Pages source block in Terraform:
 
 ```hcl
 pages = {
   build_type = "workflow"
 }
 ```
+
+Do not add a `source` branch/path block for CP Verdant unless it switches back to
+legacy branch-based Pages publishing.
 
 If Pages was enabled in the GitHub UI before Terraform management, add a declarative
 `import` block so the first apply adopts the existing Pages site instead of trying to create it.

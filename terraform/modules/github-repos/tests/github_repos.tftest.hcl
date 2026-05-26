@@ -63,3 +63,27 @@ run "pages_workflow_configures_repository_pages" {
     error_message = "workflow Pages config should create a github_repository_pages resource"
   }
 }
+
+run "validation_rejects_workflow_pages_source" {
+  command = plan
+
+  expect_failures = [var.repositories]
+
+  variables {
+    repositories = [
+      {
+        name        = "docs-site"
+        description = "Repository with invalid workflow Pages source"
+        visibility  = "private"
+        pages = {
+          build_type = "workflow"
+          source = {
+            branch = "main"
+            path   = "/docs"
+          }
+        }
+      }
+    ]
+    codeowners = ["@test-owner"]
+  }
+}

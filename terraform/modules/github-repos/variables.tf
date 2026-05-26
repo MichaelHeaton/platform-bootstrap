@@ -65,6 +65,16 @@ variable "repositories" {
   validation {
     condition = alltrue([
       for r in var.repositories :
+      try(r.pages, null) == null ||
+      try(r.pages.build_type, "legacy") != "workflow" ||
+      try(r.pages.source, null) == null
+    ])
+    error_message = "Repository Pages source is only valid for legacy Pages; workflow Pages paths are configured by the GitHub Actions workflow."
+  }
+
+  validation {
+    condition = alltrue([
+      for r in var.repositories :
       try(r.pages.source.path, "/") == "/" || try(r.pages.source.path, "/") == "/docs"
     ])
     error_message = "Repository Pages source.path must be '/' or '/docs'."

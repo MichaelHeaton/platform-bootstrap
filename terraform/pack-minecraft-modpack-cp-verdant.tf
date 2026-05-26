@@ -6,6 +6,9 @@ locals {
     has_discussions     = true
     main_branch_ruleset = true
 
+    # Pages source is GitHub Actions. The pack repo's Pages workflow uploads
+    # docs/ as the artifact; GitHub does not expose that path in Pages settings
+    # when build_type is "workflow".
     pages = {
       build_type = "workflow"
     }
