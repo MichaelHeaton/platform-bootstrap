@@ -15,7 +15,8 @@ resource "github_repository" "managed" {
   has_projects    = try(each.value.has_projects, false)
   has_discussions = try(each.value.has_discussions, false)
 
-  # auto_init is ignored after initial creation to avoid drift on existing repos.
+  # Repositories are initialized by terraform_data.initialize_default_branch so
+  # the first branch uses the configured name instead of the account default.
   auto_init = false
 
   allow_merge_commit     = true
@@ -55,6 +56,8 @@ resource "github_branch_protection" "main" {
   repository_id = github_repository.managed[each.key].node_id
   pattern       = each.value.default_branch
 
+  depends_on = [github_repository_file.codeowners]
+
   # Admins can bypass in emergencies (break-glass), but normal pushes always
   # require a reviewed PR.
   enforce_admins = false
@@ -92,4 +95,6 @@ resource "github_repository_file" "codeowners" {
     # so Terraform must not attempt updates after the file is initially written.
     ignore_changes = all
   }
+
+  depends_on = [terraform_data.initialize_default_branch]
 }
