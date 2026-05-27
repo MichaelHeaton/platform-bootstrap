@@ -262,6 +262,12 @@ def cmd_ensure_license(args: argparse.Namespace) -> None:
             parent,
             token=token,
         )
+        _run_git(["config", "user.name", "platform-bootstrap"], workdir, token=token)
+        _run_git(
+            ["config", "user.email", "platform-bootstrap@users.noreply.github.com"],
+            workdir,
+            token=token,
+        )
 
         license_path = workdir / "LICENSE"
         if license_path.exists():
