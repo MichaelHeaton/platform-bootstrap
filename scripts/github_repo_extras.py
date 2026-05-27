@@ -14,10 +14,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 
 API_VERSION = "2022-11-28"
 
@@ -101,14 +104,19 @@ def _set_default_branch(owner: str, repo: str, branch: str) -> None:
     _request("PATCH", _repo_url(owner, repo), data={"default_branch": branch})
 
 
-def _create_blob(owner: str, repo: str, content: str) -> str:
-    blob = _request(
-        "POST",
-        _repo_url(owner, repo, "/git/blobs"),
-        data={"content": content, "encoding": "utf-8"},
+def _run_git(args: list[str], cwd: Path, *, token: str) -> None:
+    result = subprocess.run(
+        ["git", *args],
+        cwd=cwd,
+        check=False,
+        capture_output=True,
+        text=True,
     )
-    assert blob is not None
-    return blob["sha"]
+    if result.returncode == 0:
+        return
+
+    output = f"{result.stdout}\n{result.stderr}".replace(token, "[REDACTED]")
+    sys.exit(f"git {' '.join(args[:2])} failed:\n{output}")
 
 
 def _create_initial_branch(
@@ -118,38 +126,31 @@ def _create_initial_branch(
     *,
     codeowners: str,
 ) -> None:
-    readme_sha = _create_blob(
-        owner,
-        repo,
-        f"# {repo}\n\nManaged by platform-bootstrap.\n",
-    )
-    codeowners_sha = _create_blob(owner, repo, codeowners)
-    tree = _request(
-        "POST",
-        _repo_url(owner, repo, "/git/trees"),
-        data={
-            "tree": [
-                {"path": "README.md", "mode": "100644", "type": "blob", "sha": readme_sha},
-                {"path": "CODEOWNERS", "mode": "100644", "type": "blob", "sha": codeowners_sha},
-            ]
-        },
-    )
-    assert tree is not None
-    commit = _request(
-        "POST",
-        _repo_url(owner, repo, "/git/commits"),
-        data={
-            "message": "chore: initialize repository",
-            "tree": tree["sha"],
-            "parents": [],
-        },
-    )
-    assert commit is not None
-    _request(
-        "POST",
-        _repo_url(owner, repo, "/git/refs"),
-        data={"ref": f"refs/heads/{branch}", "sha": commit["sha"]},
-    )
+    token = _token()
+    encoded_token = urllib.parse.quote(token, safe="")
+    encoded_owner = urllib.parse.quote(owner, safe="")
+    encoded_repo = urllib.parse.quote(repo, safe="")
+    remote = f"https://x-access-token:{encoded_token}@github.com/{encoded_owner}/{encoded_repo}.git"
+
+    with tempfile.TemporaryDirectory(prefix=f"{repo}-init-") as tmp:
+        workdir = Path(tmp)
+        (workdir / "README.md").write_text(
+            f"# {repo}\n\nManaged by platform-bootstrap.\n",
+            encoding="utf-8",
+        )
+        (workdir / "CODEOWNERS").write_text(codeowners, encoding="utf-8")
+
+        _run_git(["init", "-b", branch], workdir, token=token)
+        _run_git(["config", "user.name", "platform-bootstrap"], workdir, token=token)
+        _run_git(
+            ["config", "user.email", "platform-bootstrap@users.noreply.github.com"],
+            workdir,
+            token=token,
+        )
+        _run_git(["add", "README.md", "CODEOWNERS"], workdir, token=token)
+        _run_git(["commit", "-m", "chore: initialize repository"], workdir, token=token)
+        _run_git(["push", remote, f"HEAD:refs/heads/{branch}"], workdir, token=token)
+
     _set_default_branch(owner, repo, branch)
 
 

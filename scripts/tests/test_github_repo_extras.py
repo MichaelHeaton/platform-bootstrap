@@ -70,39 +70,33 @@ def test_ensure_default_branch_initializes_empty_repo() -> None:
         (),
         {"repo": "ai-skills", "branch": "main", "codeowners": "@MichaelHeaton"},
     )()
-    calls = []
+    api_calls = []
+    git_calls = []
 
     def fake_request(method: str, url: str, **kwargs: object) -> dict | None:
-        calls.append((method, url, kwargs))
+        api_calls.append((method, url, kwargs))
         if method == "GET" and url.endswith("/ai-skills"):
             return {"default_branch": "Main"}
         if method == "GET" and "/git/ref/heads/" in url:
             return None
-        if method == "POST" and url.endswith("/git/blobs"):
-            return {"sha": f"blob-{len(calls)}"}
-        if method == "POST" and url.endswith("/git/trees"):
-            return {"sha": "tree"}
-        if method == "POST" and url.endswith("/git/commits"):
-            return {"sha": "commit"}
-        if method == "POST" and url.endswith("/git/refs"):
-            return {}
         if method == "PATCH" and url.endswith("/ai-skills"):
             return {}
         raise AssertionError(f"unexpected request: {method} {url}")
 
+    def fake_run_git(args: list[str], cwd: Path, **kwargs: object) -> None:
+        git_calls.append(args)
+
     with (
         patch.dict("os.environ", {"GITHUB_TOKEN": "t", "GITHUB_ORG": "MichaelHeaton"}),
         patch.object(extras, "_request", side_effect=fake_request),
+        patch.object(extras, "_run_git", side_effect=fake_run_git),
     ):
         extras.cmd_ensure_default_branch(args)
 
-    tree_call = next(call for call in calls if call[1].endswith("/git/trees"))
-    tree_entries = tree_call[2]["data"]["tree"]  # type: ignore[index]
-    ref_call = next(call for call in calls if call[1].endswith("/git/refs"))
-    patch_call = calls[-1]
-
-    assert [entry["path"] for entry in tree_entries] == ["README.md", "CODEOWNERS"]
-    assert ref_call[2]["data"]["ref"] == "refs/heads/main"  # type: ignore[index]
+    assert git_calls[0] == ["init", "-b", "main"]
+    assert git_calls[-1][0] == "push"
+    assert git_calls[-1][-1] == "HEAD:refs/heads/main"
+    patch_call = api_calls[-1]
     assert patch_call[0] == "PATCH"
     assert patch_call[2]["data"]["default_branch"] == "main"  # type: ignore[index]
 
