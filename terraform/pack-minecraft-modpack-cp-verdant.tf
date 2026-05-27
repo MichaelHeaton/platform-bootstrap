@@ -19,7 +19,7 @@ locals {
     # See docs/runbooks/05-specterrealm-pack-github-settings.md.
 
     # Remove Memex vault labels if they were copied onto this repo; do not recreate.
-    labels_remove = [
+    labels_remove = tolist([
       "triage/needs-grooming",
       "type/brain-dump",
       "domain/adobe",
@@ -51,9 +51,9 @@ locals {
       "cat/rest",
       "cat/sustenance",
       "cat/lighting",
-    ]
+    ])
 
-    labels = [
+    labels = tolist([
       { name = "bug", color = "d73a4a", description = "Something isn't working" },
       { name = "documentation", color = "0075ca", description = "Improvements or additions to documentation" },
       { name = "duplicate", color = "cfd3d7", description = "This issue or pull request already exists" },
@@ -78,6 +78,6 @@ locals {
       { name = "status/fixed-in-dev", color = "a309ec", description = "Fixed on main, not in a playtest zip yet" },
       { name = "in-progress", color = "1d76db", description = "Active development this session" },
       { name = "content", color = "f9d71c", description = "Quest, narrative, or Patchouli content" },
-    ]
+    ])
   }
 }
