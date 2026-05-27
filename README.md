@@ -62,10 +62,14 @@ branch can assume it, even if it knows the role ARN.
 
 ## How to Add a GitHub Repository Only
 
-For repository-only requests, add an entry to `managed_repositories` in
-`terraform/managed.auto.tfvars` and open a PR. Do not create repositories manually with `gh repo
-create` or the GitHub API; the Terraform plan/apply workflows are the source of truth and create
-the repository after merge.
+For repository-only requests, start with the **New managed repository** issue template so the
+request captures visibility, default branch, license, Pages, Discussions, and AWS service-account
+needs. Then add an entry to `managed_repositories` in `terraform/managed.auto.tfvars` and open a
+PR. Do not create repositories manually with `gh repo create` or the GitHub API; the Terraform
+plan/apply workflows are the source of truth and create the repository after merge.
+
+Public repositories should include a `license` block. Terraform currently supports automatic
+`MIT` license creation during repository setup.
 
 ## How to Run the Compliance Check
 

@@ -19,6 +19,11 @@ variable "repositories" {
 
     labels_remove = optional(list(string), [])
 
+    license = optional(object({
+      spdx_id          = string
+      copyright_holder = optional(string, "Michael Heaton")
+    }))
+
     pages = optional(object({
       build_type = optional(string, "legacy")
       source = optional(object({
@@ -42,6 +47,14 @@ variable "repositories" {
   validation {
     condition     = alltrue([for r in var.repositories : contains(["private", "public"], r.visibility)])
     error_message = "Repository visibility must be 'private' or 'public'."
+  }
+
+  validation {
+    condition = alltrue([
+      for r in var.repositories :
+      try(r.license, null) == null || contains(["MIT"], try(r.license.spdx_id, ""))
+    ])
+    error_message = "Repository license.spdx_id must be one of: MIT."
   }
 
   validation {

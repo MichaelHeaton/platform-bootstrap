@@ -1,0 +1,104 @@
+name: New managed repository
+description: Request a GitHub repository to be created or onboarded by platform-bootstrap.
+title: "New repo: <name>"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form to request a repository managed by Terraform in `platform-bootstrap`.
+        An agent can turn this ticket into a PR that updates `terraform/managed.auto.tfvars`.
+  - type: input
+    id: repo-name
+    attributes:
+      label: Repository name
+      description: GitHub repository name without the owner.
+      placeholder: ai-skills
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Short repository description for GitHub.
+      placeholder: Reusable AI assistant skills and workflows.
+    validations:
+      required: true
+  - type: dropdown
+    id: visibility
+    attributes:
+      label: Visibility
+      description: Public repos should include a license and pass publication review.
+      options:
+        - private
+        - public
+      default: 0
+    validations:
+      required: true
+  - type: input
+    id: default-branch
+    attributes:
+      label: Default branch
+      description: Use `main` unless there is a strong compatibility reason.
+      placeholder: main
+    validations:
+      required: true
+  - type: dropdown
+    id: license
+    attributes:
+      label: License
+      description: Terraform currently supports creating MIT licenses automatically.
+      options:
+        - none
+        - MIT
+      default: 0
+    validations:
+      required: true
+  - type: input
+    id: copyright-holder
+    attributes:
+      label: Copyright holder
+      description: Required when a license is selected.
+      placeholder: Michael Heaton
+  - type: input
+    id: topics
+    attributes:
+      label: Topics
+      description: Comma-separated GitHub topics.
+      placeholder: ai, skills, tooling
+  - type: dropdown
+    id: pages
+    attributes:
+      label: GitHub Pages
+      options:
+        - none
+        - workflow
+        - legacy /
+        - legacy /docs
+      default: 0
+    validations:
+      required: true
+  - type: dropdown
+    id: discussions
+    attributes:
+      label: Discussions
+      options:
+        - disabled
+        - enabled
+      default: 0
+    validations:
+      required: true
+  - type: dropdown
+    id: service-account
+    attributes:
+      label: Needs AWS service account / deploy role
+      options:
+        - "no"
+        - "yes"
+      default: 0
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional setup notes
+      description: Include labels, Pages CNAMEs, service prefixes, or other special setup.

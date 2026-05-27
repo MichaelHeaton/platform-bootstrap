@@ -58,6 +58,9 @@ managed_repositories = [
     name        = "ai-skills"
     description = "Reusable AI assistant skills and workflows"
     visibility  = "public"
+    license = {
+      spdx_id = "MIT"
+    }
   },
 
   # ── Homelab — config ────────────────────────────────────────────────────────
