@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """GitHub repository extras not supported by the Terraform GitHub provider.
 
+- ensure-default-branch: initialize empty repos and ensure the configured default branch exists
 - delete-label: remove labels (used from terraform_data local-exec on apply)
 - verify-discussion-categories: check required discussion category slugs exist
 
@@ -45,7 +46,8 @@ def _request(
     url: str,
     *,
     data: dict | None = None,
-) -> dict:
+    allow_not_found: bool = False,
+) -> dict | None:
     headers = {
         "Authorization": f"Bearer {_token()}",
         "Accept": "application/vnd.github+json",
@@ -61,6 +63,8 @@ def _request(
             raw = resp.read().decode()
             return json.loads(raw) if raw else {}
     except urllib.error.HTTPError as exc:
+        if allow_not_found and exc.code == 404:
+            return None
         detail = exc.read().decode(errors="replace")
         sys.exit(f"GitHub API {method} {url} failed ({exc.code}): {detail}")
 
@@ -74,6 +78,109 @@ def _graphql(query: str, variables: dict | None = None) -> dict:
     if payload.get("errors"):
         sys.exit(f"GraphQL errors: {json.dumps(payload['errors'], indent=2)}")
     return payload["data"]
+
+
+def _repo_url(owner: str, repo: str, suffix: str = "") -> str:
+    encoded_owner = urllib.parse.quote(owner, safe="")
+    encoded_repo = urllib.parse.quote(repo, safe="")
+    return f"https://api.github.com/repos/{encoded_owner}/{encoded_repo}{suffix}"
+
+
+def _get_branch_ref(owner: str, repo: str, branch: str) -> dict | None:
+    encoded_branch = urllib.parse.quote(branch, safe="")
+    return _request(
+        "GET",
+        _repo_url(owner, repo, f"/git/ref/heads/{encoded_branch}"),
+        allow_not_found=True,
+    )
+
+
+def _set_default_branch(owner: str, repo: str, branch: str) -> None:
+    _request("PATCH", _repo_url(owner, repo), data={"default_branch": branch})
+
+
+def _create_blob(owner: str, repo: str, content: str) -> str:
+    blob = _request(
+        "POST",
+        _repo_url(owner, repo, "/git/blobs"),
+        data={"content": content, "encoding": "utf-8"},
+    )
+    assert blob is not None
+    return blob["sha"]
+
+
+def _create_initial_branch(
+    owner: str,
+    repo: str,
+    branch: str,
+    *,
+    codeowners: str,
+) -> None:
+    readme_sha = _create_blob(
+        owner,
+        repo,
+        f"# {repo}\n\nManaged by platform-bootstrap.\n",
+    )
+    codeowners_sha = _create_blob(owner, repo, codeowners)
+    tree = _request(
+        "POST",
+        _repo_url(owner, repo, "/git/trees"),
+        data={
+            "tree": [
+                {"path": "README.md", "mode": "100644", "type": "blob", "sha": readme_sha},
+                {"path": "CODEOWNERS", "mode": "100644", "type": "blob", "sha": codeowners_sha},
+            ]
+        },
+    )
+    assert tree is not None
+    commit = _request(
+        "POST",
+        _repo_url(owner, repo, "/git/commits"),
+        data={
+            "message": "chore: initialize repository",
+            "tree": tree["sha"],
+            "parents": [],
+        },
+    )
+    assert commit is not None
+    _request(
+        "POST",
+        _repo_url(owner, repo, "/git/refs"),
+        data={"ref": f"refs/heads/{branch}", "sha": commit["sha"]},
+    )
+    _set_default_branch(owner, repo, branch)
+
+
+def cmd_ensure_default_branch(args: argparse.Namespace) -> None:
+    owner = _org()
+    repo_info = _request("GET", _repo_url(owner, args.repo))
+    assert repo_info is not None
+
+    desired = args.branch
+    desired_ref = _get_branch_ref(owner, args.repo, desired)
+    if desired_ref is not None:
+        if repo_info.get("default_branch") != desired:
+            _set_default_branch(owner, args.repo, desired)
+            print(f"set default branch for {owner}/{args.repo} to {desired}")
+        else:
+            print(f"{owner}/{args.repo}: default branch {desired} already exists")
+        return
+
+    current_default = repo_info.get("default_branch")
+    current_ref = _get_branch_ref(owner, args.repo, current_default) if current_default else None
+    if current_ref is not None:
+        _request(
+            "POST",
+            _repo_url(owner, args.repo, "/git/refs"),
+            data={"ref": f"refs/heads/{desired}", "sha": current_ref["object"]["sha"]},
+        )
+        _set_default_branch(owner, args.repo, desired)
+        print(f"created {desired} from {current_default} and set it as default for {owner}/{args.repo}")
+        return
+
+    codeowners = f"* {args.codeowners.strip()}\n"
+    _create_initial_branch(owner, args.repo, desired, codeowners=codeowners)
+    print(f"initialized empty repository {owner}/{args.repo} with default branch {desired}")
 
 
 def _list_category_slugs(owner: str, name: str) -> set[str]:
@@ -157,6 +264,12 @@ def main() -> None:
     verify = sub.add_parser("verify-discussion-categories")
     verify.add_argument("--repo", help="Single repo name to verify (default: all pack repos)")
     verify.set_defaults(func=cmd_verify_discussion_categories)
+
+    init = sub.add_parser("ensure-default-branch")
+    init.add_argument("--repo", required=True)
+    init.add_argument("--branch", required=True)
+    init.add_argument("--codeowners", required=True, help="Space-delimited CODEOWNERS handles")
+    init.set_defaults(func=cmd_ensure_default_branch)
 
     lbl = sub.add_parser("delete-label")
     lbl.add_argument("--repo", required=True)

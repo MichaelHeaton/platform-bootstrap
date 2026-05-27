@@ -7,6 +7,26 @@ locals {
   extras_script = abspath("${path.module}/../../../scripts/github_repo_extras.py")
 }
 
+resource "terraform_data" "initialize_default_branch" {
+  for_each = local.repos_map
+
+  input = {
+    repository = each.value.name
+    branch     = each.value.default_branch
+    codeowners = join(" ", var.codeowners)
+  }
+
+  depends_on = [github_repository.managed]
+
+  provisioner "local-exec" {
+    command = "python3 ${local.extras_script} ensure-default-branch --repo ${jsonencode(each.value.name)} --branch ${jsonencode(each.value.default_branch)} --codeowners ${jsonencode(join(" ", var.codeowners))}"
+    environment = {
+      GITHUB_TOKEN = var.github_token
+      GITHUB_ORG   = var.github_org
+    }
+  }
+}
+
 resource "terraform_data" "label_remove" {
   for_each = local.label_remove_entries
 
