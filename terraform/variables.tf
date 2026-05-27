@@ -73,6 +73,11 @@ variable "managed_repositories" {
 
     labels_remove = optional(list(string), [])
 
+    license = optional(object({
+      spdx_id          = string
+      copyright_holder = optional(string, "Michael Heaton")
+    }))
+
     pages = optional(object({
       build_type = optional(string, "legacy")
       source = optional(object({

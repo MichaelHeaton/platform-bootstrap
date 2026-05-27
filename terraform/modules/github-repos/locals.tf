@@ -27,6 +27,16 @@ locals {
     ]) : entry.key => entry
   }
 
+  license_entries = {
+    for name, repo in local.repos_map : name => {
+      repository       = repo.name
+      branch           = repo.default_branch
+      spdx_id          = repo.license.spdx_id
+      copyright_holder = try(repo.license.copyright_holder, "Michael Heaton")
+    }
+    if try(repo.license, null) != null
+  }
+
   main_ruleset_repos = {
     for name, repo in local.repos_map : name => repo
     if try(repo.main_branch_ruleset, false)

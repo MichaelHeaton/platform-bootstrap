@@ -56,7 +56,10 @@ resource "github_branch_protection" "main" {
   repository_id = github_repository.managed[each.key].node_id
   pattern       = each.value.default_branch
 
-  depends_on = [github_repository_file.codeowners]
+  depends_on = [
+    github_repository_file.codeowners,
+    terraform_data.ensure_license,
+  ]
 
   # Admins can bypass in emergencies (break-glass), but normal pushes always
   # require a reviewed PR.

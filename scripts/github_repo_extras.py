@@ -12,6 +12,7 @@ Custom categories (e.g. mod-suggestions) must be added once in the repo UI.
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import os
 import subprocess
@@ -28,6 +29,8 @@ API_VERSION = "2022-11-28"
 PACK_DISCUSSION_SLUGS: dict[str, list[str]] = {
     "minecraft-modpack-cp-verdant": ["ideas", "mod-suggestions"],
 }
+
+SUPPORTED_LICENSES = {"MIT"}
 
 
 def _token() -> str:
@@ -104,6 +107,39 @@ def _set_default_branch(owner: str, repo: str, branch: str) -> None:
     _request("PATCH", _repo_url(owner, repo), data={"default_branch": branch})
 
 
+def _license_text(spdx_id: str, copyright_holder: str) -> str:
+    normalized = spdx_id.upper()
+    if normalized not in SUPPORTED_LICENSES:
+        sys.exit(f"Unsupported license SPDX ID: {spdx_id}. Supported: {', '.join(sorted(SUPPORTED_LICENSES))}")
+
+    year = dt.datetime.now(dt.UTC).year
+    if normalized == "MIT":
+        return f"""MIT License
+
+Copyright (c) {year} {copyright_holder}
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
+
+    raise AssertionError(f"unhandled supported license: {normalized}")
+
+
 def _run_git(args: list[str], cwd: Path, *, token: str) -> None:
     result = subprocess.run(
         ["git", *args],
@@ -125,6 +161,8 @@ def _create_initial_branch(
     branch: str,
     *,
     codeowners: str,
+    license_spdx_id: str = "",
+    license_copyright_holder: str = "",
 ) -> None:
     token = _token()
     encoded_token = urllib.parse.quote(token, safe="")
@@ -139,6 +177,11 @@ def _create_initial_branch(
             encoding="utf-8",
         )
         (workdir / "CODEOWNERS").write_text(codeowners, encoding="utf-8")
+        if license_spdx_id:
+            (workdir / "LICENSE").write_text(
+                _license_text(license_spdx_id, license_copyright_holder or owner),
+                encoding="utf-8",
+            )
 
         _run_git(["init", "-b", branch], workdir, token=token)
         _run_git(["config", "user.name", "platform-bootstrap"], workdir, token=token)
@@ -147,7 +190,10 @@ def _create_initial_branch(
             workdir,
             token=token,
         )
-        _run_git(["add", "README.md", "CODEOWNERS"], workdir, token=token)
+        initial_files = ["README.md", "CODEOWNERS"]
+        if license_spdx_id:
+            initial_files.append("LICENSE")
+        _run_git(["add", *initial_files], workdir, token=token)
         _run_git(["commit", "-m", "chore: initialize repository"], workdir, token=token)
         _run_git(["push", remote, f"HEAD:refs/heads/{branch}"], workdir, token=token)
 
@@ -182,8 +228,54 @@ def cmd_ensure_default_branch(args: argparse.Namespace) -> None:
         return
 
     codeowners = f"* {args.codeowners.strip()}\n"
-    _create_initial_branch(owner, args.repo, desired, codeowners=codeowners)
+    _create_initial_branch(
+        owner,
+        args.repo,
+        desired,
+        codeowners=codeowners,
+        license_spdx_id=args.license_spdx_id,
+        license_copyright_holder=args.license_copyright_holder,
+    )
     print(f"initialized empty repository {owner}/{args.repo} with default branch {desired}")
+
+
+def _repo_remote(owner: str, repo: str) -> str:
+    token = _token()
+    encoded_token = urllib.parse.quote(token, safe="")
+    encoded_owner = urllib.parse.quote(owner, safe="")
+    encoded_repo = urllib.parse.quote(repo, safe="")
+    return f"https://x-access-token:{encoded_token}@github.com/{encoded_owner}/{encoded_repo}.git"
+
+
+def cmd_ensure_license(args: argparse.Namespace) -> None:
+    owner = _org()
+    branch_ref = _get_branch_ref(owner, args.repo, args.branch)
+    if branch_ref is None:
+        sys.exit(f"Branch {args.branch} does not exist on {owner}/{args.repo}; run ensure-default-branch first")
+
+    token = _token()
+    with tempfile.TemporaryDirectory(prefix=f"{args.repo}-license-") as tmp:
+        parent = Path(tmp)
+        workdir = parent / args.repo
+        _run_git(
+            ["clone", "--branch", args.branch, "--depth", "1", _repo_remote(owner, args.repo), str(workdir)],
+            parent,
+            token=token,
+        )
+
+        license_path = workdir / "LICENSE"
+        if license_path.exists():
+            print(f"{owner}/{args.repo}: LICENSE already exists")
+            return
+
+        license_path.write_text(
+            _license_text(args.license_spdx_id, args.license_copyright_holder or owner),
+            encoding="utf-8",
+        )
+        _run_git(["add", "LICENSE"], workdir, token=token)
+        _run_git(["commit", "-m", "chore: add license"], workdir, token=token)
+        _run_git(["push", "origin", f"HEAD:refs/heads/{args.branch}"], workdir, token=token)
+        print(f"added {args.license_spdx_id} LICENSE to {owner}/{args.repo}")
 
 
 def _list_category_slugs(owner: str, name: str) -> set[str]:
@@ -272,7 +364,16 @@ def main() -> None:
     init.add_argument("--repo", required=True)
     init.add_argument("--branch", required=True)
     init.add_argument("--codeowners", required=True, help="Space-delimited CODEOWNERS handles")
+    init.add_argument("--license-spdx-id", default="")
+    init.add_argument("--license-copyright-holder", default="")
     init.set_defaults(func=cmd_ensure_default_branch)
+
+    lic = sub.add_parser("ensure-license")
+    lic.add_argument("--repo", required=True)
+    lic.add_argument("--branch", required=True)
+    lic.add_argument("--license-spdx-id", required=True)
+    lic.add_argument("--license-copyright-holder", required=True)
+    lic.set_defaults(func=cmd_ensure_license)
 
     lbl = sub.add_parser("delete-label")
     lbl.add_argument("--repo", required=True)
