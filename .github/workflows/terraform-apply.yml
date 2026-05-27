@@ -83,7 +83,20 @@ jobs:
             -backend-config="region=${{ vars.AWS_REGION }}"
 
       # -----------------------------------------------------------------------
-      # 5. Plan — generate a plan file so that apply uses exactly what was
+      # 5. Format check — mirror the PR gate before any mutating operation.
+      #    -recursive catches modules under terraform/modules/.
+      # -----------------------------------------------------------------------
+      - name: Terraform Format Check
+        run: terraform -chdir=terraform fmt -check -recursive
+
+      # -----------------------------------------------------------------------
+      # 6. Validate — mirror the PR gate before planning/applying on main.
+      # -----------------------------------------------------------------------
+      - name: Terraform Validate
+        run: terraform -chdir=terraform validate
+
+      # -----------------------------------------------------------------------
+      # 7. Plan — generate a plan file so that apply uses exactly what was
       #    reviewed. A failure here stops the job before any apply occurs.
       #    Unlike terraform-plan.yml this step does NOT use continue-on-error
       #    because we want the job to fail hard if planning fails post-merge.
@@ -95,7 +108,7 @@ jobs:
             -no-color
 
       # -----------------------------------------------------------------------
-      # 6. Apply — continue-on-error so the comment step always runs and the
+      # 8. Apply — continue-on-error so the comment step always runs and the
       #    PR author sees the result inline rather than having to open the log.
       # -----------------------------------------------------------------------
       - name: Terraform Apply
@@ -110,7 +123,7 @@ jobs:
         run: exit 1
 
       # -----------------------------------------------------------------------
-      # 7. Post apply output as a comment on the PR that triggered this push.
+      # 9. Post apply output as a comment on the PR that triggered this push.
       #    Uses listPullRequestsAssociatedWithCommit to find the right PR.
       #    Deletes any previous apply comment to keep the timeline clean.
       # -----------------------------------------------------------------------
@@ -205,7 +218,7 @@ jobs:
             }
 
       # -----------------------------------------------------------------------
-      # 8. Failure notice — only runs when apply failed.
+      # 10. Failure notice — only runs when apply failed.
       #    Reminds the operator to check state consistency before retrying.
       # -----------------------------------------------------------------------
       - name: Notify on apply failure
