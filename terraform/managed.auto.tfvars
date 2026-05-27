@@ -52,7 +52,7 @@ managed_repositories = [
   {
     name        = "claude-skills"
     description = "Custom Claude Code skills for daily workflows"
-    visibility  = "public"
+    visibility  = "private"
   },
   {
     name        = "ai-skills"
