@@ -115,6 +115,7 @@ jobs:
         id: apply
         continue-on-error: true
         run: |
+          set -o pipefail
           terraform -chdir=terraform apply -auto-approve tfplan \
             2>&1 | tee /tmp/tfapply_output.txt
 

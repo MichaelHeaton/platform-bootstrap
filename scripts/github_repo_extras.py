@@ -63,9 +63,11 @@ def _request(
             raw = resp.read().decode()
             return json.loads(raw) if raw else {}
     except urllib.error.HTTPError as exc:
-        if allow_not_found and exc.code == 404:
-            return None
         detail = exc.read().decode(errors="replace")
+        if allow_not_found and (
+            exc.code == 404 or (exc.code == 409 and "Git Repository is empty" in detail)
+        ):
+            return None
         sys.exit(f"GitHub API {method} {url} failed ({exc.code}): {detail}")
 
 
