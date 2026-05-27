@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import sys
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+import urllib.error
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -105,9 +107,23 @@ def test_ensure_default_branch_initializes_empty_repo() -> None:
     assert patch_call[2]["data"]["default_branch"] == "main"  # type: ignore[index]
 
 
-def test_delete_label_treats_404_as_success() -> None:
-    import urllib.error
+def test_get_branch_ref_treats_empty_repo_409_as_missing() -> None:
+    err = urllib.error.HTTPError(
+        "url",
+        409,
+        "conflict",
+        hdrs=None,
+        fp=BytesIO(b'{"message":"Git Repository is empty."}'),
+    )
 
+    with (
+        patch.dict("os.environ", {"GITHUB_TOKEN": "t", "GITHUB_ORG": "MichaelHeaton"}),
+        patch("urllib.request.urlopen", side_effect=err),
+    ):
+        assert extras._get_branch_ref("MichaelHeaton", "ai-skills", "main") is None
+
+
+def test_delete_label_treats_404_as_success() -> None:
     args = type("NS", (), {"repo": "pack", "name": "domain/adobe"})()
     err = urllib.error.HTTPError("url", 404, "nope", hdrs=None, fp=None)
     with (
