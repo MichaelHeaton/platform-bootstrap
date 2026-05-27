@@ -10,7 +10,11 @@ locals {
     # docs/ as the artifact; GitHub does not expose that path in Pages settings
     # when build_type is "workflow".
     pages = {
-      build_type = "workflow"
+      build_type     = "workflow"
+      source         = null
+      cname          = null
+      public         = null
+      https_enforced = null
     }
 
     # GitHub exposes no API to create discussion categories. "ideas" is a default
