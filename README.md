@@ -29,10 +29,10 @@ Complete these in order. Each runbook assumes the previous one is done.
 
 ## How to Add a New Project
 
-1. Add an entry to `var.pipelines` in `terraform/main.tf` with the project's `repo_name`,
+1. Add the repo to `managed_repositories` in `terraform/managed.auto.tfvars` if it is a new
+   GitHub repository that should be managed by this platform (branch protection, CODEOWNERS, etc.).
+2. Add an entry to `var.pipelines` in `terraform/main.tf` with the project's `repo_name`,
    `environment`, `cloud`, `function`, and `allowed_refs`.
-2. Add the repo to `var.managed_repositories` if it is a new GitHub repository that should be
-   managed by this platform (branch protection, CODEOWNERS, etc.).
 3. Open a PR — the `terraform-plan` workflow will post a comment showing exactly what will be
    created before anyone approves.
 4. After merge, the `terraform-apply` workflow creates the S3 state path and the IAM role
@@ -59,6 +59,13 @@ This single entry creates:
 
 The role trusts only the `my-app` repository on `refs/heads/main`. No other repository or
 branch can assume it, even if it knows the role ARN.
+
+## How to Add a GitHub Repository Only
+
+For repository-only requests, add an entry to `managed_repositories` in
+`terraform/managed.auto.tfvars` and open a PR. Do not create repositories manually with `gh repo
+create` or the GitHub API; the Terraform plan/apply workflows are the source of truth and create
+the repository after merge.
 
 ## How to Run the Compliance Check
 

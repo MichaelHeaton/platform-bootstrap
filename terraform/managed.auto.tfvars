@@ -54,6 +54,11 @@ managed_repositories = [
     description = "Custom Claude Code skills for daily workflows"
     visibility  = "public"
   },
+  {
+    name        = "ai-skills"
+    description = "Reusable AI assistant skills and workflows"
+    visibility  = "public"
+  },
 
   # ── Homelab — config ────────────────────────────────────────────────────────
   {
