@@ -144,6 +144,12 @@ def test_ensure_license_adds_license_when_missing(tmp_path: Path) -> None:
         extras.cmd_ensure_license(args)
 
     assert any(call[0] == "clone" for call in git_calls)
+    assert ["config", "user.name", "platform-bootstrap"] in git_calls
+    assert [
+        "config",
+        "user.email",
+        "platform-bootstrap@users.noreply.github.com",
+    ] in git_calls
     assert any(call == ["add", "LICENSE"] for call in git_calls)
     assert git_calls[-1] == ["push", "origin", "HEAD:refs/heads/main"]
     assert "MIT License" in (tmp_path / "ai-skills" / "LICENSE").read_text()
