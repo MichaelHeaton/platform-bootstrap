@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Runbook `04-add-service.md` and `configure-service-cicd` script/Makefile targets to wire
+  `AWS_DEPLOY_ROLE_ARN` / `AWS_SAM_BUCKET` on service repos from Terraform outputs
+- Terraform outputs: `github_org`, `service_repo_names` (for CI/CD wiring script)
 - SpecterRealm pack GitHub settings for `minecraft-modpack-cp-verdant`
   - Discussions + `ideas` / `mod-suggestions` categories (`scripts/github_repo_extras.py`)
   - Pack issue labels and optional `main` ruleset (deletion + non-fast-forward)
