@@ -35,6 +35,17 @@ lock:
 		-platform=darwin_arm64 \
 		-platform=darwin_amd64
 
+# ── Service CI/CD wiring ──────────────────────────────────────────────────────
+
+# Wire GitHub secrets/variables on all service repos after terraform apply.
+# Reads Terraform outputs and calls gh secret set / gh variable set.
+# Add --dry-run to preview without making changes.
+configure-service-cicd:
+	bash scripts/configure-service-cicd.sh
+
+configure-service-cicd-dry:
+	bash scripts/configure-service-cicd.sh --dry-run
+
 # ── Compliance ────────────────────────────────────────────────────────────────
 
 # Structural checks only — no AWS credentials required.
@@ -68,6 +79,9 @@ help:
 	@echo ""
 	@echo "  make compliance        Structural checks — no credentials needed"
 	@echo "  make compliance-full   Full checks — requires AWS credentials + GITHUB_TOKEN"
+	@echo ""
+	@echo "  make configure-service-cicd     Wire GitHub secrets/vars on all service repos (live)"
+	@echo "  make configure-service-cicd-dry Preview what would be set (no changes)"
 	@echo ""
 	@echo "Environment variables used by init:"
 	@echo "  TF_STATE_BUCKET_NAME   S3 bucket name (mccleaton-tfstate)"

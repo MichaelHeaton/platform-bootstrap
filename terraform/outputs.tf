@@ -37,3 +37,13 @@ output "github_pages_urls" {
   description = "Map of repository name to GitHub Pages URL for repositories with Pages managed."
   value       = module.github_repos.pages_urls
 }
+
+output "github_org" {
+  description = "GitHub organisation or user owning all managed repositories."
+  value       = var.github_org
+}
+
+output "service_repo_names" {
+  description = "Map of service name to GitHub repository name (may differ from service_name)."
+  value       = { for s in var.service_accounts : s.service_name => s.repo_name }
+}
