@@ -34,6 +34,7 @@ provider "aws" {
 
 provider "github" {
   owner = var.github_org
+  token = var.github_token
 }
 
 # SpecterRealm org — manages Colony Protocol pack repos.

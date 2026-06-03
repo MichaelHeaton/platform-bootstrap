@@ -77,9 +77,9 @@ module "github_repos" {
 resource "github_actions_secret" "service_deploy_role_arn" {
   for_each = module.service_accounts
 
-  repository      = local.service_accounts_by_name[each.key].repo_name
-  secret_name     = "AWS_DEPLOY_ROLE_ARN"
-  plaintext_value = each.value.deploy_role_arn
+  repository  = local.service_accounts_by_name[each.key].repo_name
+  secret_name = "AWS_DEPLOY_ROLE_ARN"
+  value       = each.value.deploy_role_arn
 
   depends_on = [module.github_repos]
 }
