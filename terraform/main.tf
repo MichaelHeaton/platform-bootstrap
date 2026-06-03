@@ -71,7 +71,7 @@ module "github_repos" {
   repositories = local.managed_repositories_resolved
   codeowners   = ["@MichaelHeaton"] # See CODEOWNERS
   github_org   = var.github_org
-  github_token = var.github_token
+  github_token = var.tfe_pb_michaelheaton
 }
 
 resource "github_actions_secret" "service_deploy_role_arn" {
@@ -285,7 +285,7 @@ module "github_repos_specterrealm" {
   repositories = local.specterrealm_repositories_resolved
   codeowners   = ["@MichaelHeaton"]
   github_org   = "SpecterRealm"
-  github_token = var.specterrealm_github_token
+  github_token = var.tfe_pb_specterrealm
 }
 
 

@@ -1,6 +1,5 @@
 # Colony Protocol: Elysian (P2 — active).
 # Copy pack-minecraft-modpack-cp-verdant.tf as the reference when adding pack-specific extras.
-# Note: main_branch_ruleset disabled — rulesets require GitHub Pro on private org repos.
 
 locals {
   pack_settings_minecraft_modpack_cp_elysian = {
