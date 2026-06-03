@@ -257,6 +257,37 @@ resource "aws_iam_role_policy_attachment" "compliance_readonly" {
   policy_arn = aws_iam_policy.compliance_readonly.arn
 }
 
+# ── SpecterRealm org repositories ─────────────────────────────────────────────
+
+locals {
+  specterrealm_repositories_resolved = [
+    for repo in var.specterrealm_repositories : (
+      repo.name == "specterrealm-core"
+      ? merge(repo, local.pack_settings_specterrealm_core)
+      : repo.name == "minecraft-modpack-cp-elysian"
+      ? merge(repo, local.pack_settings_minecraft_modpack_cp_elysian)
+      : repo.name == "minecraft-modpack-cp-influx"
+      ? merge(repo, local.pack_settings_minecraft_modpack_cp_influx)
+      : repo.name == "minecraft-modpack-cp-liminal"
+      ? merge(repo, local.pack_settings_minecraft_modpack_cp_liminal)
+      : repo
+    )
+  ]
+}
+
+module "github_repos_specterrealm" {
+  source = "./modules/github-repos"
+
+  providers = {
+    github = github.specterrealm
+  }
+
+  repositories = local.specterrealm_repositories_resolved
+  codeowners   = ["@MichaelHeaton"]
+  github_org   = "SpecterRealm"
+  github_token = var.specterrealm_github_token
+}
+
 
 # DEFERRED: Multi-account AWS via AWS Organizations
 # See ADR-006: In-repo modules
