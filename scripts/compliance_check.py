@@ -56,7 +56,6 @@ REPO_ROOT: Path = Path(__file__).resolve().parent.parent
 
 REQUIRED_WORKFLOW_FILES = [
     ".github/workflows/terraform-plan.yml",
-    ".github/workflows/terraform-apply.yml",
     ".github/workflows/compliance-check.yml",
     ".github/workflows/pre-publication-audit.yml",
 ]
@@ -453,29 +452,29 @@ def check_modules_complete() -> List[CheckResult]:
 @structural_registry.register("BACKEND_CONFIGURED")
 def check_backend_configured() -> List[CheckResult]:
     name = "BACKEND_CONFIGURED"
-    path = REPO_ROOT / "terraform" / "backend.tf"
+    path = REPO_ROOT / "terraform" / "versions.tf"
     if not path.exists():
         return [
             _fail(
                 name,
-                "terraform/backend.tf not found",
-                what_is_wrong="backend.tf is missing. Without it Terraform will default to local state, which is not safe for team use.",
-                how_to_fix='Create terraform/backend.tf with a terraform { backend "s3" { ... } } block.',
-                runbook="See runbook: docs/runbooks/02-bootstrap.md — 'Create the S3 bootstrap bucket'",
+                "terraform/versions.tf not found",
+                what_is_wrong="versions.tf is missing. State backend (cloud block) must be declared here.",
+                how_to_fix="Create terraform/versions.tf with a terraform { cloud { ... } } block pointing at HCP Terraform.",
+                runbook="See runbook: docs/runbooks/02-bootstrap.md — 'HCP Terraform backend'",
             )
         ]
     content = path.read_text()
-    if "s3" not in content:
+    if "cloud" not in content or "McCleaton-Bootstrap" not in content:
         return [
             _fail(
                 name,
-                "terraform/backend.tf exists but does not reference s3",
-                what_is_wrong='backend.tf does not contain an s3 backend configuration.',
-                how_to_fix='Add backend "s3" {} block to terraform/backend.tf.',
-                runbook="See runbook: docs/runbooks/02-bootstrap.md — 'Create the S3 bootstrap bucket'",
+                "versions.tf does not contain HCP Terraform cloud block",
+                what_is_wrong="State is not configured to use HCP Terraform (McCleaton-Bootstrap org).",
+                how_to_fix='Add a terraform { cloud { organization = "McCleaton-Bootstrap" ... } } block to versions.tf.',
+                runbook="See runbook: docs/runbooks/02-bootstrap.md — 'HCP Terraform backend'",
             )
         ]
-    return [_pass(name, "terraform/backend.tf found and references s3")]
+    return [_pass(name, "HCP Terraform cloud backend configured in versions.tf")]
 
 
 @structural_registry.register("PLATFORM_BOOTSTRAP_NOT_MANAGED")
