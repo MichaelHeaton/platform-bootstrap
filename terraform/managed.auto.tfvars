@@ -203,19 +203,19 @@ specterrealm_repositories = [
   {
     name        = "minecraft-modpack-cp-elysian"
     description = "Colony Protocol: Elysian — P2 magic/nature/exploration modpack (NeoForge 1.21.1)"
-    visibility  = "private"
+    visibility  = "public"
     topics      = ["minecraft", "neoforge", "packwiz", "colony-protocol"]
   },
   {
     name        = "minecraft-modpack-cp-influx"
     description = "Colony Protocol: Influx — P3 skyblock/EMC design phase (NeoForge 1.21.1)"
-    visibility  = "private"
+    visibility  = "public"
     topics      = ["minecraft", "neoforge", "packwiz", "colony-protocol"]
   },
   {
     name        = "minecraft-modpack-cp-liminal"
     description = "Colony Protocol: Liminal — P4 hostile contact/combat design phase (NeoForge 1.21.1)"
-    visibility  = "private"
+    visibility  = "public"
     topics      = ["minecraft", "neoforge", "packwiz", "colony-protocol"]
   },
 ]
