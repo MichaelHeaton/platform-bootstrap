@@ -42,6 +42,7 @@ jobs:
     # TF_VAR_* values are set at the job level so every Terraform step
     # automatically sees them without repeating the env block per-step.
     env:
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_app_terraform_io }}
       TF_VAR_aws_region: ${{ vars.AWS_REGION }}
       TF_VAR_aws_account_id: ${{ vars.AWS_ACCOUNT_ID }}
       TF_VAR_state_bucket_name: ${{ vars.TF_STATE_BUCKET_NAME }}
@@ -75,13 +76,10 @@ jobs:
           terraform_version: "~> 1.10"
 
       # -----------------------------------------------------------------------
-      # 4. Init — same backend-config pattern as plan workflow
+      # 4. Init — state backend is HCP Terraform (cloud block in versions.tf).
       # -----------------------------------------------------------------------
       - name: Terraform Init
-        run: |
-          terraform -chdir=terraform init \
-            -backend-config="bucket=${{ vars.TF_STATE_BUCKET_NAME }}" \
-            -backend-config="region=${{ vars.AWS_REGION }}"
+        run: terraform -chdir=terraform init
 
       # -----------------------------------------------------------------------
       # 5. Format check — mirror the PR gate before any mutating operation.
@@ -231,7 +229,7 @@ jobs:
           echo ""
           echo "Common causes:"
           echo "  - Provider API errors (transient; safe to retry)"
-          echo "  - State lock held by another run (check S3 + DynamoDB)"
+          echo "  - State lock held by another run (cancel in HCP Terraform UI)"
           echo "  - Resource already exists outside of Terraform (import required)"
           echo ""
           echo "DO NOT re-run apply blindly. Read the runbook first."

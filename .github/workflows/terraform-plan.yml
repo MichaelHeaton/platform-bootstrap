@@ -64,14 +64,14 @@ jobs:
           terraform_version: "~> 1.10"
 
       # -----------------------------------------------------------------------
-      # 4. Initialise the backend.  Bucket and region come from GitHub
-      #    variables so the same workflow file works in any environment.
+      # 4. Initialise — state is stored in HCP Terraform (cloud block in
+      #    versions.tf). No backend-config flags needed; token is picked up
+      #    from TF_TOKEN_app_terraform_io set in the env below.
       # -----------------------------------------------------------------------
       - name: Terraform Init
-        run: |
-          terraform -chdir=terraform init \
-            -backend-config="bucket=${{ vars.TF_STATE_BUCKET_NAME }}" \
-            -backend-config="region=${{ vars.AWS_REGION }}"
+        env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_app_terraform_io }}
+        run: terraform -chdir=terraform init
 
       # -----------------------------------------------------------------------
       # 5. Format check — fail fast on style issues before doing real work.
@@ -97,6 +97,7 @@ jobs:
         id: plan
         continue-on-error: true
         env:
+          TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_app_terraform_io }}
           TF_VAR_aws_region: ${{ vars.AWS_REGION }}
           TF_VAR_aws_account_id: ${{ vars.AWS_ACCOUNT_ID }}
           TF_VAR_state_bucket_name: ${{ vars.TF_STATE_BUCKET_NAME }}
