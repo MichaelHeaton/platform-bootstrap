@@ -2,7 +2,7 @@ terraform {
   required_version = ">= 1.10.0"
 
   cloud {
-    organization = "SpecterRealm"
+    organization = "McCleaton-Bootstrap"
 
     workspaces {
       name = "platform-bootstrap"
