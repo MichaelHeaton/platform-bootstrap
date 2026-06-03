@@ -1,15 +1,10 @@
-# terraform-plan.yml
+# terraform-validate.yml
 #
-# Runs on every pull request that touches Terraform code or this workflow.
-# Posts the plan output as a PR comment so reviewers can see exactly what
-# will change before approving.  The plan is NOT applied here — apply only
-# happens after merge to main (see terraform-apply.yml).
-#
-# Authentication: AWS credentials are obtained via OIDC (no static keys).
-# The IAM role trusts GitHub's OIDC provider scoped to this repository,
-# so `id-token: write` is the only credential-related permission needed.
+# Runs on every pull request that touches Terraform code.
+# Fast fmt + validate check only — plan and apply are handled by HCP Terraform
+# via the VCS integration on the McCleaton-Bootstrap/platform-bootstrap workspace.
 
-name: Terraform Plan
+name: Terraform Validate
 
 on:
   pull_request:
@@ -17,177 +12,35 @@ on:
       - main
     paths:
       - "terraform/**"
-      - "scripts/github_repo_extras.py"
       - ".github/workflows/terraform-*.yml"
 
 permissions:
-  contents: read       # checkout
-  id-token: write      # OIDC token exchange with AWS STS
-  pull-requests: write # post / update plan comment
+  contents: read
 
-# Only one terraform run at a time. Plans on older commits are cancelled so
-# the lock is always held by the most recent push.
 concurrency:
-  group: terraform-platform-bootstrap
+  group: terraform-validate-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  terraform-plan:
-    name: Terraform Plan
+  terraform-validate:
+    name: Terraform Validate
     runs-on: ubuntu-latest
 
     steps:
-      # -----------------------------------------------------------------------
-      # 1. Source code
-      # -----------------------------------------------------------------------
       - name: Checkout
         uses: actions/checkout@v6
 
-      # -----------------------------------------------------------------------
-      # 2. AWS credentials via OIDC — no long-lived keys
-      #    The role ARN is constructed from a GitHub variable so that this
-      #    workflow file contains zero hardcoded account IDs.
-      # -----------------------------------------------------------------------
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/platform-bootstrap-github-actions
-          aws-region: ${{ vars.AWS_REGION }}
-
-      # -----------------------------------------------------------------------
-      # 3. Terraform — version is read from .terraform-version when present,
-      #    otherwise the constraint below keeps us on the 1.10 minor line.
-      # -----------------------------------------------------------------------
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: "~> 1.10"
+          cli_config_credentials_token: ${{ secrets.TF_TOKEN_app_terraform_io }}
 
-      # -----------------------------------------------------------------------
-      # 4. Initialise the backend.  Bucket and region come from GitHub
-      #    variables so the same workflow file works in any environment.
-      # -----------------------------------------------------------------------
       - name: Terraform Init
-        run: |
-          terraform -chdir=terraform init \
-            -backend-config="bucket=${{ vars.TF_STATE_BUCKET_NAME }}" \
-            -backend-config="region=${{ vars.AWS_REGION }}"
+        run: terraform -chdir=terraform init -backend=false
 
-      # -----------------------------------------------------------------------
-      # 5. Format check — fail fast on style issues before doing real work.
-      #    -recursive catches modules under terraform/modules/.
-      # -----------------------------------------------------------------------
       - name: Terraform Format Check
         run: terraform -chdir=terraform fmt -check -recursive
 
-      # -----------------------------------------------------------------------
-      # 6. Validate — catches provider/resource configuration errors without
-      #    requiring real AWS credentials (runs purely locally).
-      # -----------------------------------------------------------------------
       - name: Terraform Validate
         run: terraform -chdir=terraform validate
-
-      # -----------------------------------------------------------------------
-      # 7. Plan
-      #    continue-on-error: true so we always reach the comment step and the
-      #    PR author sees the failure reason inline rather than having to open
-      #    the workflow logs.
-      # -----------------------------------------------------------------------
-      - name: Terraform Plan
-        id: plan
-        continue-on-error: true
-        env:
-          TF_VAR_aws_region: ${{ vars.AWS_REGION }}
-          TF_VAR_aws_account_id: ${{ vars.AWS_ACCOUNT_ID }}
-          TF_VAR_state_bucket_name: ${{ vars.TF_STATE_BUCKET_NAME }}
-          TF_VAR_github_org: ${{ vars.GH_ORG }}
-          TF_VAR_github_token: ${{ secrets.GH_TOKEN }}
-          TF_VAR_specterrealm_github_token: ${{ secrets.SPECTERREALM_GH_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: |
-          set -o pipefail
-          terraform -chdir=terraform plan \
-            -out=tfplan \
-            -no-color \
-            2>&1 | tee /tmp/tfplan_output.txt
-
-      # -----------------------------------------------------------------------
-      # 8. Post plan output as a PR comment.
-      #    We delete any previous "Terraform Plan" comment from this bot to
-      #    keep the PR timeline clean — only the most recent plan is visible.
-      # -----------------------------------------------------------------------
-      - name: Post plan comment
-        uses: actions/github-script@v9
-        env:
-          PLAN_OUTCOME: ${{ steps.plan.outcome }}
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs');
-
-            // Read plan output; truncate if GitHub's 65 536-char comment limit
-            // would be exceeded — the full output is always in the workflow log.
-            let planOutput = '';
-            try {
-              planOutput = fs.readFileSync('/tmp/tfplan_output.txt', 'utf8');
-            } catch (e) {
-              planOutput = '(plan output not available — check workflow logs)';
-            }
-            const MAX_LEN = 60000;
-            if (planOutput.length > MAX_LEN) {
-              planOutput =
-                planOutput.substring(0, MAX_LEN) +
-                '\n\n... output truncated — see full log in the workflow run.';
-            }
-
-            const outcome  = process.env.PLAN_OUTCOME;
-            const icon     = outcome === 'success' ? '✅' : '❌';
-            const runUrl   = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-
-            const body = [
-              `## ${icon} Terraform Plan`,
-              '',
-              `**Outcome:** \`${outcome}\` | **Run by:** @${context.actor} | [View run](${runUrl})`,
-              '',
-              '<details>',
-              '<summary>Click to expand plan output</summary>',
-              '',
-              '```hcl',
-              planOutput,
-              '```',
-              '</details>',
-            ].join('\n');
-
-            // Delete previous bot comments that have the same header so the
-            // PR timeline shows only the latest plan.
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo:  context.repo.repo,
-              issue_number: context.issue.number,
-            });
-            for (const comment of comments) {
-              if (
-                comment.user.type === 'Bot' &&
-                comment.body.includes('## ') &&
-                comment.body.includes('Terraform Plan')
-              ) {
-                await github.rest.issues.deleteComment({
-                  owner:      context.repo.owner,
-                  repo:       context.repo.repo,
-                  comment_id: comment.id,
-                });
-              }
-            }
-
-            await github.rest.issues.createComment({
-              owner:        context.repo.owner,
-              repo:         context.repo.repo,
-              issue_number: context.issue.number,
-              body,
-            });
-
-            // Now that we have posted the comment, propagate a plan failure so
-            // the job itself is marked red and branch protection can block merge.
-            if (outcome !== 'success') {
-              core.setFailed('Terraform plan failed — see comment above for details.');
-            }
