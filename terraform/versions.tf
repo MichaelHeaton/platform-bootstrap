@@ -38,10 +38,15 @@ provider "github" {
 }
 
 # SpecterRealm org — manages Colony Protocol pack repos.
-# Requires TF_VAR_specterrealm_github_token in CI (same PAT scope as github_token
-# if the token owner is an org member, otherwise a separate org-scoped PAT).
 provider "github" {
   alias = "specterrealm"
   owner = "SpecterRealm"
   token = var.specterrealm_github_token
+}
+
+# specterrealm-homelab org — manages homelab infrastructure repos.
+provider "github" {
+  alias = "specterrealm_homelab"
+  owner = "specterrealm-homelab"
+  token = var.specterrealm_homelab_github_token
 }

@@ -103,6 +103,12 @@ variable "specterrealm_github_token" {
   description = "GitHub PAT scoped to the SpecterRealm org. Supplied as TF_VAR_specterrealm_github_token in CI."
 }
 
+variable "specterrealm_homelab_github_token" {
+  type        = string
+  sensitive   = true
+  description = "GitHub PAT scoped to the specterrealm-homelab org."
+}
+
 variable "specterrealm_repositories" {
   type = list(object({
     name           = string
