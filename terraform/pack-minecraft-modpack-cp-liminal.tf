@@ -1,10 +1,9 @@
 # Colony Protocol: Liminal (P4 — design phase).
 # Minimal settings until the pack moves to active development.
+# Note: main_branch_ruleset disabled — rulesets require GitHub Pro on private org repos.
 
 locals {
   pack_settings_minecraft_modpack_cp_liminal = {
-    main_branch_ruleset = true
-
     labels = tolist([
       { name = "bug", color = "d73a4a", description = "Something isn't working" },
       { name = "documentation", color = "0075ca", description = "Improvements or additions to documentation" },
