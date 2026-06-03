@@ -10,11 +10,14 @@ platform-bootstrap uses three fine-grained GitHub PATs to authenticate the Terra
 provider for each org it manages. These tokens are stored as sensitive workspace variables in
 HCP Terraform (`McCleaton-Bootstrap / platform-bootstrap`).
 
-| Token name | GitHub org | HCP variable | Expires |
+| GitHub PAT name (hyphens) | GitHub org | HCP variable key (underscores) | Expires |
 |---|---|---|---|
-| `tfe-pb-michaelheaton` | `MichaelHeaton` | `github_token` | ⚠️ No expiry — set one |
-| `tfe-pb-specterrealm` | `SpecterRealm` | `specterrealm_github_token` | Jun 4 2027 |
-| `tfe-pb-specterrealm-homelab` | `specterrealm-homelab` | `specterrealm_homelab_github_token` | Jun 4 2027 |
+| `tfe-pb-michaelheaton` | `MichaelHeaton` | `tfe_pb_michaelheaton` | ⚠️ No expiry — set one |
+| `tfe-pb-specterrealm` | `SpecterRealm` | `tfe_pb_specterrealm` | Jun 4 2027 |
+| `tfe-pb-specterrealm-homelab` | `specterrealm-homelab` | `tfe_pb_specterrealm_homelab` | Jun 4 2027 |
+
+> **Note:** GitHub PAT names use hyphens; HCP Terraform variable keys use underscores.
+> These must stay in sync but will never be identical — that is expected.
 
 ---
 
@@ -52,7 +55,7 @@ Save the token temporarily in Apple Keychain before proceeding.
 ### 3.2 Update the HCP Terraform workspace variable
 
 1. Go to **app.terraform.io → McCleaton-Bootstrap → platform-bootstrap → Variables**
-2. Find the corresponding variable (e.g. `github_token`)
+2. Find the corresponding variable (e.g. `tfe_pb_michaelheaton`)
 3. Click **⋯ → Edit**
 4. Paste the new token value
 5. Ensure **Sensitive** is checked and **HCL is unchecked**
@@ -84,5 +87,5 @@ If a run fails with `401 Bad credentials` or `403 Resource not accessible`:
 ## 5. Notes
 
 - Tokens are org-scoped — rotating one does not affect the others
-- The `github_token` (MichaelHeaton) has no expiration date — set one on next rotation
+- The `tfe_pb_michaelheaton` token (MichaelHeaton) has no expiration date — set one on next rotation
 - Never commit token values to the repository or paste them into PR descriptions
