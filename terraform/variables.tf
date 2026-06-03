@@ -46,10 +46,10 @@ variable "service_accounts" {
   default     = []
 }
 
-variable "github_token" {
+variable "tfe_pb_michaelheaton" {
   type        = string
   sensitive   = true
-  description = "GitHub PAT for Terraform extras (discussion categories). Supplied as TF_VAR_github_token in CI."
+  description = "GitHub PAT for the MichaelHeaton org. Token name: tfe-pb-michaelheaton."
 }
 
 variable "managed_repositories" {
@@ -97,16 +97,16 @@ variable "managed_repositories" {
 
 # ── SpecterRealm org ───────────────────────────────────────────────────────────
 
-variable "specterrealm_github_token" {
+variable "tfe_pb_specterrealm" {
   type        = string
   sensitive   = true
-  description = "GitHub PAT scoped to the SpecterRealm org. Supplied as TF_VAR_specterrealm_github_token in CI."
+  description = "GitHub PAT for the SpecterRealm org. Token name: tfe-pb-specterrealm."
 }
 
-variable "specterrealm_homelab_github_token" {
+variable "tfe_pb_specterrealm_homelab" {
   type        = string
   sensitive   = true
-  description = "GitHub PAT scoped to the specterrealm-homelab org."
+  description = "GitHub PAT for the specterrealm-homelab org. Token name: tfe-pb-specterrealm-homelab."
 }
 
 variable "specterrealm_repositories" {
