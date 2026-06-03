@@ -94,3 +94,54 @@ variable "managed_repositories" {
   description = "GitHub repositories to manage. Must NOT include platform-bootstrap. See ADR-004."
   default     = []
 }
+
+# ── SpecterRealm org ───────────────────────────────────────────────────────────
+
+variable "specterrealm_github_token" {
+  type        = string
+  sensitive   = true
+  description = "GitHub PAT scoped to the SpecterRealm org. Supplied as TF_VAR_specterrealm_github_token in CI."
+}
+
+variable "specterrealm_repositories" {
+  type = list(object({
+    name           = string
+    description    = string
+    visibility     = string
+    topics         = optional(list(string), [])
+    default_branch = optional(string, "main")
+
+    has_issues      = optional(bool, true)
+    has_wiki        = optional(bool, false)
+    has_projects    = optional(bool, false)
+    has_discussions = optional(bool, false)
+
+    labels = optional(list(object({
+      name        = string
+      color       = string
+      description = optional(string, "")
+    })), [])
+
+    labels_remove = optional(list(string), [])
+
+    license = optional(object({
+      spdx_id          = string
+      copyright_holder = optional(string, "Michael Heaton")
+    }))
+
+    pages = optional(object({
+      build_type = optional(string, "legacy")
+      source = optional(object({
+        branch = string
+        path   = optional(string, "/")
+      }))
+      cname          = optional(string)
+      public         = optional(bool)
+      https_enforced = optional(bool)
+    }))
+
+    main_branch_ruleset = optional(bool, false)
+  }))
+  description = "GitHub repositories to manage under the SpecterRealm org. Same schema as managed_repositories."
+  default     = []
+}

@@ -186,3 +186,36 @@ managed_repositories = [
     visibility  = "private"
   },
 ]
+
+specterrealm_repositories = [
+  # ── SpecterRealm — shared library ───────────────────────────────────────────
+  {
+    name        = "specterrealm-core"
+    description = "Shared NeoForge library mod for all Colony Protocol packs (modId: specterrealm)"
+    visibility  = "public"
+    topics      = ["minecraft", "neoforge", "minecraft-mod", "colony-protocol"]
+    license = {
+      spdx_id = "MIT"
+    }
+  },
+
+  # ── Colony Protocol packs ────────────────────────────────────────────────────
+  {
+    name        = "minecraft-modpack-cp-elysian"
+    description = "Colony Protocol: Elysian — P2 magic/nature/exploration modpack (NeoForge 1.21.1)"
+    visibility  = "private"
+    topics      = ["minecraft", "neoforge", "packwiz", "colony-protocol"]
+  },
+  {
+    name        = "minecraft-modpack-cp-influx"
+    description = "Colony Protocol: Influx — P3 skyblock/EMC design phase (NeoForge 1.21.1)"
+    visibility  = "private"
+    topics      = ["minecraft", "neoforge", "packwiz", "colony-protocol"]
+  },
+  {
+    name        = "minecraft-modpack-cp-liminal"
+    description = "Colony Protocol: Liminal — P4 hostile contact/combat design phase (NeoForge 1.21.1)"
+    visibility  = "private"
+    topics      = ["minecraft", "neoforge", "packwiz", "colony-protocol"]
+  },
+]
