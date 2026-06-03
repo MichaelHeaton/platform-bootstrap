@@ -42,6 +42,11 @@ locals {
     if try(repo.main_branch_ruleset, false)
   }
 
+  main_protection_repos = {
+    for name, repo in local.repos_map : name => repo
+    if try(repo.main_branch_protection, true)
+  }
+
   pages_repos = {
     for name, repo in local.repos_map : name => repo
     if try(repo.pages, null) != null
