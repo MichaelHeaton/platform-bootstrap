@@ -16,3 +16,8 @@ import {
   to = module.github_repos_specterrealm.github_repository.managed["minecraft-modpack-cp-influx"]
   id = "minecraft-modpack-cp-influx"
 }
+
+import {
+  to = module.github_repos_specterrealm.github_repository.managed["minecraft-modpack-cp-liminal"]
+  id = "minecraft-modpack-cp-liminal"
+}
