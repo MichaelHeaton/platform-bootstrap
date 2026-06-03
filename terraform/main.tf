@@ -79,7 +79,7 @@ resource "github_actions_secret" "service_deploy_role_arn" {
 
   repository      = local.service_accounts_by_name[each.key].repo_name
   secret_name     = "AWS_DEPLOY_ROLE_ARN"
-  plaintext_value = each.value.deploy_role_arn
+  value = each.value.deploy_role_arn
 
   depends_on = [module.github_repos]
 }
