@@ -35,6 +35,7 @@ Benefits over PATs:
    | Metadata | Read | Required baseline |
    | Pages | Read and write | `github_repository_pages` on pack repos |
    | Secrets | Read and write | `github_actions_secret` on service repos |
+   | Variables | Read and write | `github_actions_variable` on service repos |
 
 6. Permissions — set **Organization permissions** (for SpecterRealm install):
 
@@ -129,7 +130,7 @@ If you see 403 errors, check:
 
 - `owner` is set on each provider (`MichaelHeaton` / `SpecterRealm`)
 - Installation ID matches the account/org being managed
-- App permissions include **Pages: Read and write** (required for modpack repos with GitHub Pages)
+- App permissions include **Pages**, **Secrets**, and **Variables** (all read/write on repositories)
 - After changing App permissions, open each installation → **Review pending request** → Accept
 
 ---
