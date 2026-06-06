@@ -1,5 +1,4 @@
-# These tests require a valid GITHUB_TOKEN environment variable with repo
-# creation permissions in the target organisation.
+# These tests require GitHub App credentials or override_data stubs.
 # Run with: terraform test
 # Resources created during the test run are destroyed automatically on completion.
 #
@@ -10,6 +9,13 @@
 
 run "validation_rejects_platform_bootstrap" {
   command = plan
+
+  override_data {
+    target = data.github_app_token.local_exec
+    values = {
+      token = "test-installation-token"
+    }
+  }
 
   # Expect Terraform to surface the validation error defined in variables.tf.
   expect_failures = [var.repositories]
@@ -23,16 +29,31 @@ run "validation_rejects_platform_bootstrap" {
         topics      = []
       }
     ]
-    codeowners = ["@test-owner"]
+    codeowners                 = ["@test-owner"]
+    github_org                 = "test-org"
+    github_app_id              = "12345"
+    github_app_installation_id = "67890"
+    github_app_pem             = "dummy-pem"
   }
 }
 
 run "empty_repositories_succeeds" {
   command = plan
 
+  override_data {
+    target = data.github_app_token.local_exec
+    values = {
+      token = "test-installation-token"
+    }
+  }
+
   variables {
-    repositories = []
-    codeowners   = ["@test-owner"]
+    repositories               = []
+    codeowners                 = ["@test-owner"]
+    github_org                 = "test-org"
+    github_app_id              = "12345"
+    github_app_installation_id = "67890"
+    github_app_pem             = "dummy-pem"
   }
 
   assert {
@@ -43,6 +64,13 @@ run "empty_repositories_succeeds" {
 
 run "pages_workflow_configures_repository_pages" {
   command = plan
+
+  override_data {
+    target = data.github_app_token.local_exec
+    values = {
+      token = "test-installation-token"
+    }
+  }
 
   variables {
     repositories = [
@@ -55,7 +83,11 @@ run "pages_workflow_configures_repository_pages" {
         }
       }
     ]
-    codeowners = ["@test-owner"]
+    codeowners                 = ["@test-owner"]
+    github_org                 = "test-org"
+    github_app_id              = "12345"
+    github_app_installation_id = "67890"
+    github_app_pem             = "dummy-pem"
   }
 
   assert {
@@ -66,6 +98,13 @@ run "pages_workflow_configures_repository_pages" {
 
 run "validation_rejects_workflow_pages_source" {
   command = plan
+
+  override_data {
+    target = data.github_app_token.local_exec
+    values = {
+      token = "test-installation-token"
+    }
+  }
 
   expect_failures = [var.repositories]
 
@@ -84,6 +123,10 @@ run "validation_rejects_workflow_pages_source" {
         }
       }
     ]
-    codeowners = ["@test-owner"]
+    codeowners                 = ["@test-owner"]
+    github_org                 = "test-org"
+    github_app_id              = "12345"
+    github_app_installation_id = "67890"
+    github_app_pem             = "dummy-pem"
   }
 }

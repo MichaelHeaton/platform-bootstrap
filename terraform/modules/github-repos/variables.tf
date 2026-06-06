@@ -104,8 +104,18 @@ variable "github_org" {
   description = "GitHub organization or user that owns managed repositories."
 }
 
-variable "github_token" {
+variable "github_app_id" {
+  type        = string
+  description = "GitHub App ID. Shared across providers; installation_id differs per owner."
+}
+
+variable "github_app_installation_id" {
+  type        = string
+  description = "GitHub App installation ID for this module's github_org (user or org account)."
+}
+
+variable "github_app_pem" {
   type        = string
   sensitive   = true
-  description = "GitHub token for local-exec extras (discussion categories, label removal). Set via TF_VAR_github_token in CI."
+  description = "GitHub App private key PEM contents. In HCP, use literal \\n for newlines."
 }

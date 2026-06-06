@@ -34,19 +34,31 @@ provider "aws" {
 
 provider "github" {
   owner = var.github_org
-  token = var.tfe_pb_michaelheaton
+  app_auth {
+    id              = var.github_app_id
+    installation_id = var.github_app_installation_id
+    pem_file        = var.github_app_pem
+  }
 }
 
 # SpecterRealm org — manages Colony Protocol pack repos.
 provider "github" {
   alias = "specterrealm"
   owner = "SpecterRealm"
-  token = var.tfe_pb_specterrealm
+  app_auth {
+    id              = var.github_app_id
+    installation_id = var.specterrealm_github_app_installation_id
+    pem_file        = var.github_app_pem
+  }
 }
 
-# specterrealm-homelab org — manages homelab infrastructure repos.
+# specterrealm-homelab org — reserved for homelab infrastructure repos.
 provider "github" {
   alias = "specterrealm_homelab"
   owner = "specterrealm-homelab"
-  token = var.tfe_pb_specterrealm_homelab
+  app_auth {
+    id              = var.github_app_id
+    installation_id = var.specterrealm_homelab_github_app_installation_id
+    pem_file        = var.github_app_pem
+  }
 }

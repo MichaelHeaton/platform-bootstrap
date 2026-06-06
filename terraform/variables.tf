@@ -46,10 +46,30 @@ variable "service_accounts" {
   default     = []
 }
 
-variable "tfe_pb_michaelheaton" {
+variable "github_app_id" {
+  type        = string
+  description = "GitHub App ID for Terraform GitHub provider auth. HCP workspace variable: github_app_id."
+}
+
+variable "github_app_pem" {
   type        = string
   sensitive   = true
-  description = "GitHub PAT for the MichaelHeaton org. Token name: tfe-pb-michaelheaton."
+  description = "GitHub App private key PEM contents. HCP workspace variable: github_app_pem (use \\n for newlines)."
+}
+
+variable "github_app_installation_id" {
+  type        = string
+  description = "GitHub App installation ID on the MichaelHeaton account. HCP workspace variable: github_app_installation_id."
+}
+
+variable "specterrealm_github_app_installation_id" {
+  type        = string
+  description = "GitHub App installation ID on the SpecterRealm org. HCP workspace variable: specterrealm_github_app_installation_id."
+}
+
+variable "specterrealm_homelab_github_app_installation_id" {
+  type        = string
+  description = "GitHub App installation ID on the specterrealm-homelab org. HCP workspace variable: specterrealm_homelab_github_app_installation_id."
 }
 
 variable "managed_repositories" {
@@ -96,18 +116,6 @@ variable "managed_repositories" {
 }
 
 # ── SpecterRealm org ───────────────────────────────────────────────────────────
-
-variable "tfe_pb_specterrealm" {
-  type        = string
-  sensitive   = true
-  description = "GitHub PAT for the SpecterRealm org. Token name: tfe-pb-specterrealm."
-}
-
-variable "tfe_pb_specterrealm_homelab" {
-  type        = string
-  sensitive   = true
-  description = "GitHub PAT for the specterrealm-homelab org. Token name: tfe-pb-specterrealm-homelab."
-}
 
 variable "specterrealm_repositories" {
   type = list(object({

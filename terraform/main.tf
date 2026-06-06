@@ -68,10 +68,12 @@ locals {
 module "github_repos" {
   source = "./modules/github-repos"
 
-  repositories = local.managed_repositories_resolved
-  codeowners   = ["@MichaelHeaton"] # See CODEOWNERS
-  github_org   = var.github_org
-  github_token = var.tfe_pb_michaelheaton
+  repositories               = local.managed_repositories_resolved
+  codeowners                 = ["@MichaelHeaton"] # See CODEOWNERS
+  github_org                 = var.github_org
+  github_app_id              = var.github_app_id
+  github_app_pem             = var.github_app_pem
+  github_app_installation_id = var.github_app_installation_id
 }
 
 resource "github_actions_secret" "service_deploy_role_arn" {
@@ -282,10 +284,12 @@ module "github_repos_specterrealm" {
     github = github.specterrealm
   }
 
-  repositories = local.specterrealm_repositories_resolved
-  codeowners   = ["@MichaelHeaton"]
-  github_org   = "SpecterRealm"
-  github_token = var.tfe_pb_specterrealm
+  repositories               = local.specterrealm_repositories_resolved
+  codeowners                 = ["@MichaelHeaton"]
+  github_org                 = "SpecterRealm"
+  github_app_id              = var.github_app_id
+  github_app_pem             = var.github_app_pem
+  github_app_installation_id = var.specterrealm_github_app_installation_id
 }
 
 
