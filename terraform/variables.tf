@@ -27,9 +27,37 @@ variable "pipelines" {
     function                    = string
     allowed_refs                = list(string)
     secretsmanager_secret_names = optional(list(string), [])
+    tfe_workspace_enabled       = optional(bool, true)
+    tfe_workspace_name          = optional(string)
+    terraform_working_directory = optional(string, "terraform")
   }))
-  description = "Pipeline definitions. Each entry creates one IAM role scoped to exactly one S3 state folder."
+  description = "Pipeline definitions. Each entry creates GHA OIDC + optional HCP workspace + IAM."
   default     = []
+}
+
+# ── HCP Terraform (workspace factory for domain spokes) ─────────────────────
+
+variable "tfe_organization" {
+  type        = string
+  description = "HCP Terraform organization. HCP workspace variable: tfe_organization."
+  default     = "McCleaton-Bootstrap"
+}
+
+variable "tfe_hostname" {
+  type        = string
+  description = "HCP Terraform hostname."
+  default     = "app.terraform.io"
+}
+
+variable "tfe_vcs_oauth_token_id" {
+  type        = string
+  description = "OAuth token ID for GitHub VCS in HCP (Organization Settings → VCS Providers). HCP variable: tfe_vcs_oauth_token_id."
+}
+
+variable "tfe_management_enabled" {
+  type        = bool
+  description = "Create HCP workspaces and TFE IAM roles for pipelines with tfe_workspace_enabled."
+  default     = true
 }
 
 variable "service_accounts" {

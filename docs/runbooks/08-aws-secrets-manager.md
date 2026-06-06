@@ -30,17 +30,19 @@ Naming convention:
 | Secret name | Purpose | Consumed by |
 |---|---|---|
 | `platform-bootstrap/github-app-pem` | GitHub App private key (app `3977205`) | HCP Terraform today (via HCP variable); SM is canonical store — Terraform SM read pending (#51) |
+| `platform-bootstrap/tfe-api-token` | HCP org API token (workspace factory + `tfe` provider) | `platform-bootstrap` Terraform reads SM at plan time; fans out to spoke `TF_TOKEN_app_terraform_io` |
 | `personal/linear-api-token` | Linear API token (MCP / automation) | Workstation — not wired in this repo yet |
 | `personal/notion-api-token` | Notion integration token (MCP / automation) | Workstation — not wired in this repo yet |
 | `personal/cloudflare-api-token` | Cloudflare API token `platform-terraform-dns` — DNS Edit + Zone Read on 5 zones | `cloudflare` repo (HCP/GHA) via OIDC + SM read — see runbook 09 |
 
-Verify all four exist:
+Verify all five exist:
 
 ```bash
 export AWS_PROFILE=platform-bootstrap
 export AWS_REGION=us-west-2
 
 aws secretsmanager describe-secret --secret-id platform-bootstrap/github-app-pem --query Name --output text
+aws secretsmanager describe-secret --secret-id platform-bootstrap/tfe-api-token --query Name --output text
 aws secretsmanager describe-secret --secret-id personal/linear-api-token --query Name --output text
 aws secretsmanager describe-secret --secret-id personal/notion-api-token --query Name --output text
 aws secretsmanager describe-secret --secret-id personal/cloudflare-api-token --query Name --output text
@@ -95,6 +97,33 @@ aws secretsmanager put-secret-value \
 ```
 
 See [07-github-app-auth.md](./07-github-app-auth.md) for App creation and HCP installation IDs.
+
+### HCP org API token (`tfe-api-token`)
+
+Create at [app.terraform.io](https://app.terraform.io) → User settings → **Tokens** (org-level
+token with permission to manage workspaces in `McCleaton-Bootstrap`), or reuse the token currently
+in the HCP workspace variable `tfe_api_token` during migration.
+
+```bash
+read -s "?HCP org API token: " TFE_API_TOKEN; echo
+
+aws secretsmanager create-secret \
+  --name platform-bootstrap/tfe-api-token \
+  --description "HCP org API token for platform-bootstrap workspace factory" \
+  --secret-string "$TFE_API_TOKEN"
+
+unset TFE_API_TOKEN
+```
+
+If the secret already exists:
+
+```bash
+aws secretsmanager put-secret-value \
+  --secret-id platform-bootstrap/tfe-api-token \
+  --secret-string "$TFE_API_TOKEN"
+```
+
+After Terraform reads SM successfully, delete the HCP workspace variable `tfe_api_token`.
 
 ### Linear API token
 
@@ -205,15 +234,21 @@ SM directly ([#51](https://github.com/MichaelHeaton/platform-bootstrap/issues/51
 | `github_app_installation_id` | Yes | Not secret |
 | `specterrealm_github_app_installation_id` | Yes | Not secret |
 | `github_app_pem` | Yes (for now) | Remove from HCP after Terraform reads SM |
+| `tfe_api_token` | No (removed) | Canonical copy in SM `platform-bootstrap/tfe-api-token` |
 
 When rotating the App private key: update **both** SM and HCP until the SM data source is merged.
+When rotating the HCP org API token: update SM only (`put-secret-value`).
 
 ---
 
-## 5. IAM access (future)
+## 5. IAM access
 
-The HCP dynamic credentials role `platform-bootstrap-tfe` will need scoped read access before
-Terraform can read SM at plan time:
+Terraform grants scoped SM read on `platform-bootstrap/*` to:
+
+| IAM role | How |
+|---|---|
+| `platform-bootstrap-github-actions` | `bootstrap_ci_management` policy (GHA plan/apply) |
+| `platform-bootstrap-tfe` | `platform-bootstrap-tfe-secrets-access` policy (HCP dynamic creds) |
 
 ```text
 secretsmanager:GetSecretValue  on  arn:aws:secretsmanager:us-west-2:336090301942:secret:platform-bootstrap/*
@@ -233,6 +268,7 @@ pipeline entry — see [09-cloudflare-terraform-repo.md](./09-cloudflare-terrafo
 | Secret | How to rotate |
 |---|---|
 | `platform-bootstrap/github-app-pem` | GitHub App → Generate new private key → `put-secret-value` in SM → update HCP `github_app_pem` → delete old key in GitHub |
+| `platform-bootstrap/tfe-api-token` | HCP → new org API token → `put-secret-value` in SM → revoke old token |
 | `personal/linear-api-token` | Linear settings → new token → `put-secret-value` → update MCP env |
 | `personal/notion-api-token` | Notion integration → refresh secret → `put-secret-value` → update MCP env |
 | `personal/cloudflare-api-token` | Cloudflare dashboard → roll token → `put-secret-value` → update spoke repos / env |

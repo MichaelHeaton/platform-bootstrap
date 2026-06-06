@@ -18,6 +18,16 @@ output "pipeline_role_arns" {
   value       = module.oidc_roles.pipeline_role_arns
 }
 
+output "pipeline_tfe_role_arns" {
+  description = "Map of pipeline key to HCP dynamic-credentials IAM role ARN."
+  value       = var.tfe_management_enabled ? module.tfe_roles[0].pipeline_tfe_role_arns : {}
+}
+
+output "tfe_workspace_urls" {
+  description = "Map of pipeline key to HCP workspace URL."
+  value       = var.tfe_management_enabled ? module.tfe_workspaces[0].workspace_html_urls : {}
+}
+
 output "service_deploy_role_arns" {
   description = "Map of service name to GitHub Actions deploy role ARN. Add each value as AWS_DEPLOY_ROLE_ARN in the corresponding repo's GitHub Actions secrets."
   value       = { for k, m in module.service_accounts : k => m.deploy_role_arn }

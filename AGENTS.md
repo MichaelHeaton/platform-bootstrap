@@ -5,8 +5,8 @@ Guidance for AI agents and humans working in this repository.
 ## Purpose
 
 platform-bootstrap is the **platform factory** for personal infrastructure. It provisions
-foundational AWS identity, GitHub repositories, and (planned) HCP Terraform workspaces so
-domain repos (Cloudflare, Azure, homelab, services) can run independently.
+foundational AWS identity, GitHub repositories, and HCP Terraform workspaces for domain
+spokes (Cloudflare, Azure, homelab, services) so they can run independently.
 
 It does **not** own domain resources — no Cloudflare DNS records, Azure Entra apps, or
 Proxmox VMs live here.
@@ -47,6 +47,7 @@ Do **not** introduce user PATs with manual expiry for Terraform automation. Use 
 - The `.terraform/` directory created by `terraform init` is gitignored and ephemeral; re-run init after a fresh clone.
 - **Two GitHub providers, one GitHub App**: `provider "github"` (default, owner = `MichaelHeaton`) and `provider "github" { alias = "specterrealm" }` (owner = `SpecterRealm`). Both authenticate via the same GitHub App (`github_app_id` + `github_app_pem`) with **different installation IDs** per account/org. HCP workspace variables (terraform category): `github_app_id`, `github_app_pem`, `github_app_installation_id`, `specterrealm_github_app_installation_id`. App setup: `docs/runbooks/07-github-app-auth.md`. PEM canonical store in SM: `platform-bootstrap/github-app-pem` — `docs/runbooks/08-aws-secrets-manager.md`.
 - **Domain spokes read SM at plan time**: platform infra repos live under **`McCleaton`** (`mccleaton_repositories`), not SpecterRealm. Example: `McCleaton/cloudflare` reads `personal/cloudflare-api-token` via SM. Set `github_org` on the pipeline entry for OIDC trust — see runbook 09.
+- **HCP workspaces are factory-managed**: each `pipelines` entry with `tfe_workspace_enabled` (default true) creates an HCP workspace (`tfe-workspaces` module), TFE dynamic-credentials IAM role (`tfe-roles` module), and `TF_TOKEN_app_terraform_io` on the spoke repo. Requires HCP variable `tfe_vcs_oauth_token_id` on the platform-bootstrap workspace; org API token in SM `platform-bootstrap/tfe-api-token` — `docs/runbooks/08-aws-secrets-manager.md`.
 - **platform-bootstrap excludes itself from GitHub Terraform management** (ADR-004). It is the foundation — if broken, repair via HCP UI and local Terraform, not via itself.
 
 ## Cursor Cloud specific instructions

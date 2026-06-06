@@ -20,15 +20,17 @@ McCleaton aligns with HCP (`McCleaton-Bootstrap`) and AWS naming (`mccleaton-tfs
 different org handle, change `mccleaton_org` in `terraform/variables.tf` and matching pipeline
 `github_org` values.
 
-Credential flow:
+Credential flow (HCP Terraform — factory-managed by platform-bootstrap):
 
 ```text
-GitHub Actions (OIDC) on McCleaton/cloudflare
-  → IAM role shared-cloudflare-dns-github-actions
-    → S3 state (shared-cloudflare-dns/*)
+HCP Terraform (McCleaton-Bootstrap/cloudflare) via VCS on McCleaton/cloudflare
+  → AWS dynamic credentials (IAM role shared-cloudflare-dns-tfe)
     → SM read personal/cloudflare-api-token
       → Cloudflare provider api_token
 ```
+
+GitHub Actions on the spoke repo runs **validate only** (fmt + validate). Plan and apply run in
+HCP after merge to `main`.
 
 ---
 
@@ -38,7 +40,7 @@ GitHub Actions (OIDC) on McCleaton/cloudflare
   uploaded and verified
 - platform-bootstrap GitHub App auth (runbook 07)
 - **McCleaton GitHub org created** and App installed (step 3 below)
-- HCP variable `mccleaton_github_app_installation_id` set
+- HCP variables on `platform-bootstrap` workspace (steps 2 and 4)
 - `gh` CLI authenticated
 
 ---
@@ -63,7 +65,7 @@ Using the existing `platform-bootstrap-terraform` app (runbook 07):
 4. Note the **Installation ID** from:
    `https://github.com/organizations/McCleaton/settings/installations/<INSTALLATION_ID>`
 
-### Step 2 — HCP workspace variable
+### Step 2 — HCP workspace variables (GitHub App)
 
 In `McCleaton-Bootstrap/platform-bootstrap`, add (terraform category):
 
@@ -71,40 +73,41 @@ In `McCleaton-Bootstrap/platform-bootstrap`, add (terraform category):
 |---|---|
 | `mccleaton_github_app_installation_id` | Installation ID from step 1 |
 
-### Step 3 — Merge platform-bootstrap PR and apply
+### Step 3 — Merge platform-bootstrap and apply
 
-1. Merge #53 (cloudflare registration) — done.
-2. Merge #54 (McCleaton org module + IAM fix).
-3. Confirm HCP apply is green.
-
-Terraform creates `McCleaton/cloudflare`, the OIDC pipeline role, and SM read on the state policy.
+Terraform creates `McCleaton/cloudflare`, the legacy GHA OIDC role, and registers the pipeline in
+`managed.auto.tfvars`.
 
 > **Branch protection:** GitHub Free orgs cannot enable classic branch protection on **private**
-> repos (requires Team/Enterprise or public visibility). `cloudflare` sets
-> `branch_protection = false` until McCleaton is upgraded. Rely on PR workflow discipline meanwhile.
+> repos. `cloudflare` sets `branch_protection = false` until McCleaton is upgraded.
 
-### Step 4 — Wire GitHub Actions on the cloudflare repo
+### Step 4 — HCP workspace factory variables
 
-```bash
-terraform -chdir=terraform output -json pipeline_role_arns | jq -r '."shared-cloudflare-dns"'
+In `McCleaton-Bootstrap/platform-bootstrap`, add:
 
-gh secret set AWS_ROLE_ARN --repo McCleaton/cloudflare
-gh variable set AWS_REGION --body "us-west-2" --repo McCleaton/cloudflare
-gh variable set TF_STATE_BUCKET_NAME --body "mccleaton-tfstate" --repo McCleaton/cloudflare
-gh variable set AWS_ACCOUNT_ID --body "336090301942" --repo McCleaton/cloudflare
-```
+| Variable | Category | Value |
+|---|---|---|
+| `tfe_vcs_oauth_token_id` | terraform | OAuth token ID from HCP → Organization Settings → VCS Providers (McCleaton GitHub) |
 
-### Step 5 — Push the cloudflare repo scaffold
+Org-level HCP API token: SM secret `platform-bootstrap/tfe-api-token` (see runbook 08) — not an HCP variable.
 
-```bash
-git clone git@github.com:McCleaton/cloudflare.git
-cd cloudflare
-git add .
-git commit -m "feat: initial Cloudflare DNS Terraform with SM token read"
-git push origin main
-```
+One-time: connect **McCleaton** GitHub to HCP VCS if not already linked.
 
-### Step 6 — Add DNS records
+### Step 5 — platform-bootstrap apply creates the spoke workspace
+
+After HCP apply, Terraform (`tfe-workspaces` + `tfe-roles` modules) creates:
+
+- HCP workspace **`cloudflare`** (VCS → `McCleaton/cloudflare`, dir `terraform`)
+- IAM role **`shared-cloudflare-dns-tfe`** + SM read policy
+- HCP env vars `TFC_AWS_PROVIDER_AUTH` / `TFC_AWS_RUN_ROLE_ARN`
+- GitHub secret **`TF_TOKEN_app_terraform_io`** on `McCleaton/cloudflare`
+
+### Step 6 — Push the cloudflare repo scaffold
+
+Ensure `terraform/versions.tf` uses the HCP cloud block (see section 8). Merge
+`McCleaton/cloudflare` PR with spoke Terraform + validate-only GHA.
+
+### Step 7 — Add DNS records
 
 Add `cloudflare_record` resources (or `tf-module-dns-record`) per zone via PR.
 
@@ -115,10 +118,12 @@ Add `cloudflare_record` resources (or `tf-module-dns-record`) per zone via PR.
 | Item | Value |
 |---|---|
 | GitHub repo | `McCleaton/cloudflare` |
-| Pipeline key | `shared-cloudflare-dns` |
+| HCP org / workspace | `McCleaton-Bootstrap` / `cloudflare` |
+| Pipeline key (IAM naming) | `shared-cloudflare-dns` |
 | Pipeline `github_org` | `McCleaton` |
-| IAM role | `shared-cloudflare-dns-github-actions` |
-| S3 state key | `shared-cloudflare-dns/terraform.tfstate` |
+| HCP AWS role | `shared-cloudflare-dns-tfe` |
+| Legacy GHA OIDC role | `shared-cloudflare-dns-github-actions` (retire after S3 state migration) |
+| Legacy S3 state key | `shared-cloudflare-dns/terraform.tfstate` |
 | SM secret | `personal/cloudflare-api-token` |
 
 ---
@@ -126,12 +131,11 @@ Add `cloudflare_record` resources (or `tf-module-dns-record`) per zone via PR.
 ## 5. Local development
 
 ```bash
-export AWS_PROFILE=platform-bootstrap
-export AWS_REGION=us-west-2
-export TF_STATE_BUCKET_NAME=mccleaton-tfstate
-
+terraform login
 make init plan
 ```
+
+Use `AWS_PROFILE=platform-bootstrap` for local plan when not using HCP remote execution.
 
 ---
 
@@ -146,3 +150,61 @@ See runbook 08 — **Tunnel** and **R2** tokens are separate secrets. Do not wid
 - [07 — GitHub App auth](./07-github-app-auth.md)
 - [08 — AWS Secrets Manager](./08-aws-secrets-manager.md)
 - Repo: `McCleaton/cloudflare`
+- HCP: [McCleaton-Bootstrap/cloudflare](https://app.terraform.io/app/McCleaton-Bootstrap/workspaces/cloudflare)
+
+---
+
+## 8. HCP workspace (factory-managed)
+
+platform-bootstrap owns spoke workspaces via `terraform/modules/tfe-workspaces` and
+`terraform/modules/tfe-roles`. The `pipelines` entry in `managed.auto.tfvars` drives:
+
+| Factory output | cloudflare spoke |
+|---|---|
+| HCP workspace | `McCleaton-Bootstrap/cloudflare` |
+| TFE IAM role | `shared-cloudflare-dns-tfe` |
+| VCS repo | `McCleaton/cloudflare` → `terraform/` |
+| GHA validate secret | `TF_TOKEN_app_terraform_io` (set by Terraform) |
+
+Spoke repo `terraform/versions.tf` must use the same workspace name:
+
+```hcl
+cloud {
+  organization = "McCleaton-Bootstrap"
+  workspaces { name = "cloudflare" }
+}
+```
+
+To add another spoke: extend `pipelines` + `mccleaton_repositories`, merge platform-bootstrap,
+HCP apply.
+
+**Import (one-time):** if `app.terraform.io` OIDC provider already exists from manual setup:
+
+```bash
+terraform import 'module.tfe_roles[0].aws_iam_openid_connect_provider.terraform_cloud' \
+  arn:aws:iam::336090301942:oidc-provider/app.terraform.io
+```
+
+### 8.1 Migrate state from S3 (one-time)
+
+If GHA already wrote state to S3 before HCP cutover:
+
+```bash
+cd ~/Projects/personal/cloudflare/terraform
+terraform login
+terraform init -migrate-state
+terraform plan   # expect no changes
+```
+
+Or upload via HCP UI after:
+
+```bash
+aws s3 cp s3://mccleaton-tfstate/shared-cloudflare-dns/terraform.tfstate /tmp/cloudflare.tfstate
+```
+
+### 8.2 Verify
+
+1. PR on `McCleaton/cloudflare` → **Terraform Validate** passes
+2. Merge platform-bootstrap factory PR → HCP apply creates workspace
+3. Merge spoke PR → HCP queues **plan** on `McCleaton-Bootstrap/cloudflare`
+4. Confirm plan reads SM and Cloudflare zones; apply when ready
