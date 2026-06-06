@@ -33,7 +33,7 @@ Naming convention:
 | `platform-bootstrap/tfe-api-token` | HCP org API token (workspace factory + `tfe` provider) | `platform-bootstrap` Terraform reads SM at plan time; fans out to spoke `TF_TOKEN_app_terraform_io` |
 | `personal/linear-api-token` | Linear API token (MCP / automation) | Workstation — not wired in this repo yet |
 | `personal/notion-api-token` | Notion integration token (MCP / automation) | Workstation — not wired in this repo yet |
-| `personal/cloudflare-api-token` | Cloudflare API token `platform-terraform-dns` — DNS Edit + Zone Read on 5 zones | `cloudflare` repo (HCP/GHA) via OIDC + SM read — see runbook 09 |
+| `personal/cloudflare-api-token` | Cloudflare API token `platform-terraform-dns` — DNS Edit + Zone Read on 5 zones | HCP workspace `cloudflare` via `shared-cloudflare-dns-tfe` dynamic creds — see runbook 09 |
 
 Verify all five exist:
 
@@ -257,9 +257,10 @@ secretsmanager:GetSecretValue  on  arn:aws:secretsmanager:us-west-2:336090301942
 Workstation users use the `platform-bootstrap` AWS profile with broader SM access for manual
 uploads. Do not grant `platform-bootstrap/*` read to unrelated spoke workspaces.
 
-Spoke pipeline roles (e.g. `shared-cloudflare-dns-github-actions`) receive scoped
-`secretsmanager:GetSecretValue` via their `*-state-access` IAM policy when listed in the
-pipeline entry — see [09-cloudflare-terraform-repo.md](./09-cloudflare-terraform-repo.md).
+Spoke **TFE** roles (e.g. `shared-cloudflare-dns-tfe`) receive scoped
+`secretsmanager:GetSecretValue` via their pipeline IAM policy when the secret is listed in the
+pipeline entry. Legacy GHA OIDC roles (`*-github-actions`) may still exist for validate-only
+workflows — see [09-cloudflare-terraform-repo.md](./09-cloudflare-terraform-repo.md).
 
 ---
 
