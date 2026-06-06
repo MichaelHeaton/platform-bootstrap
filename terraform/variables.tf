@@ -81,12 +81,6 @@ variable "github_app_id" {
   description = "GitHub App ID for Terraform GitHub provider auth. HCP workspace variable: github_app_id."
 }
 
-variable "github_app_pem" {
-  type        = string
-  sensitive   = true
-  description = "GitHub App private key PEM contents. Canonical copy in SM: platform-bootstrap/github-app-pem (runbook 08). Runtime: HCP variable github_app_pem until #51."
-}
-
 variable "github_app_installation_id" {
   type        = string
   description = "GitHub App installation ID on the MichaelHeaton account. HCP workspace variable: github_app_installation_id."

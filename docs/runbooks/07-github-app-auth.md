@@ -106,13 +106,12 @@ Add these workspace variables (category **terraform**, not env):
 | `github_app_installation_id` | No | Installation ID on MichaelHeaton |
 | `mccleaton_github_app_installation_id` | No | Installation ID on McCleaton (platform infra org) |
 | `specterrealm_github_app_installation_id` | No | Installation ID on SpecterRealm (Minecraft/modpacks) |
-| `github_app_pem` | **Yes** | Full PEM file contents. Paste as one line using `\n` for newlines |
 | `tfe_vcs_oauth_token_id` | No | OAuth token ID from HCP Organization Settings → VCS Providers (McCleaton GitHub) |
 
-> **Secrets Manager:** store long-lived secrets in SM (canonical copy). See
+> **Secrets Manager:** long-lived secrets are read from SM at plan time — see
 > [08-aws-secrets-manager.md](./08-aws-secrets-manager.md).
-> - `platform-bootstrap/github-app-pem` — HCP `github_app_pem` remains required until
->   Terraform reads SM directly ([#51](https://github.com/MichaelHeaton/platform-bootstrap/issues/51)).
+> - `platform-bootstrap/github-app-pem` — GitHub App private key (not an HCP variable)
+> - `platform-bootstrap/tfe-api-token` — HCP org API token (not an HCP variable)
 > - `platform-bootstrap/tfe-api-token` — org-level HCP API token; Terraform reads SM at
 >   plan time (no HCP variable).
 
@@ -126,20 +125,21 @@ Example PEM format for HCP (single line):
 
 ## 5. Local development
 
-Export the same values (PEM as file contents or multiline env var):
+Export installation IDs and other non-secret vars. PEM and HCP org token come from SM:
 
 ```bash
 export TF_VAR_github_app_id="123456"
 export TF_VAR_github_app_installation_id="7890123"
 export TF_VAR_specterrealm_github_app_installation_id="4567890"
-export TF_VAR_github_app_pem="$(cat /path/to/platform-bootstrap-terraform.pem)"
+export TF_VAR_mccleaton_github_app_installation_id="..."
 # Local shell uses TF_VAR_ prefix; HCP workspace UI uses bare names (terraform category).
 export TF_VAR_github_org="MichaelHeaton"
 # ... other TF_VAR_* from runbook 02
 ```
 
 Run plan/apply from `terraform/` with AWS credentials (`AWS_PROFILE=platform-bootstrap`) so
-Terraform can read `platform-bootstrap/tfe-api-token` from SM and use the AWS provider.
+Terraform can read `platform-bootstrap/github-app-pem` and `platform-bootstrap/tfe-api-token`
+from SM.
 
 ---
 
@@ -172,13 +172,11 @@ Also verify:
 
 | Asset | Rotation |
 |---|---|
-| App private key | Generate new key in GitHub App settings → update SM (`platform-bootstrap/github-app-pem`) and HCP `github_app_pem` → delete old key in GitHub |
+| App private key | Generate new key in GitHub App settings → `put-secret-value` in SM (`platform-bootstrap/github-app-pem`) → delete old key in GitHub |
 | Installation | Re-install app if permissions change; installation ID usually stays the same |
 | App ID | Never changes unless you create a new app |
 
-Full SM procedures: [08-aws-secrets-manager.md](./08-aws-secrets-manager.md). After
-[#51](https://github.com/MichaelHeaton/platform-bootstrap/issues/51) lands, HCP `github_app_pem`
-can be removed — SM becomes the only store for the PEM.
+Full SM procedures: [08-aws-secrets-manager.md](./08-aws-secrets-manager.md).
 
 ---
 
