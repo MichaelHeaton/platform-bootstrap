@@ -52,13 +52,6 @@ provider "github" {
   }
 }
 
-# specterrealm-homelab org — reserved for homelab infrastructure repos.
-provider "github" {
-  alias = "specterrealm_homelab"
-  owner = "specterrealm-homelab"
-  app_auth {
-    id              = var.github_app_id
-    installation_id = var.specterrealm_homelab_github_app_installation_id
-    pem_file        = var.github_app_pem
-  }
-}
+# DEFERRED: specterrealm-homelab org provider
+# Add when homelab repos are managed here. Requires HCP variable:
+# specterrealm_homelab_github_app_installation_id (installation 138340201).

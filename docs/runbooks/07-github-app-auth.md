@@ -13,7 +13,8 @@ Benefits over PATs:
 
 - No 30/60/90-day expiry cycle to babysit
 - Narrow, auditable permissions on the App
-- Same App installed on `MichaelHeaton`, `SpecterRealm`, and `specterrealm-homelab` with separate installation IDs
+- Same App installed on `MichaelHeaton` and `SpecterRealm` with separate installation IDs
+- `specterrealm-homelab` is installed on the App for future use; no Terraform provider until homelab repos are managed here
 
 ---
 
@@ -49,7 +50,7 @@ Benefits over PATs:
 
 ## 3. Install the App
 
-Install the same app on **all three** targets:
+Install the same app on **both** required targets (homelab install is optional until those repos are managed here):
 
 ### MichaelHeaton (user account)
 
@@ -65,12 +66,10 @@ Install the same app on **all three** targets:
 3. Note the **Installation ID** from:
    `https://github.com/organizations/SpecterRealm/settings/installations/<INSTALLATION_ID>`
 
-### specterrealm-homelab (organization)
+### specterrealm-homelab (organization) — optional, future
 
-1. Install App → **specterrealm-homelab** org
-2. Repository access: **All repositories**
-3. Note the **Installation ID** from:
-   `https://github.com/organizations/specterrealm-homelab/settings/installations/<INSTALLATION_ID>`
+Install the App here when homelab repos are added to Terraform. Installation ID `138340201`
+(documented for later; no HCP variable required until the provider is wired in code).
 
 ---
 
@@ -89,7 +88,6 @@ Add these workspace variables (category **terraform**, not env):
 | `github_app_id` | No | App ID from step 2 |
 | `github_app_installation_id` | No | Installation ID on MichaelHeaton |
 | `specterrealm_github_app_installation_id` | No | Installation ID on SpecterRealm |
-| `specterrealm_homelab_github_app_installation_id` | No | Installation ID on specterrealm-homelab |
 | `github_app_pem` | **Yes** | Full PEM file contents. Paste as one line using `\n` for newlines |
 
 Example PEM format for HCP (single line):

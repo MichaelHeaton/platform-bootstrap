@@ -67,10 +67,6 @@ variable "specterrealm_github_app_installation_id" {
   description = "GitHub App installation ID on the SpecterRealm org. HCP workspace variable: specterrealm_github_app_installation_id."
 }
 
-variable "specterrealm_homelab_github_app_installation_id" {
-  type        = string
-  description = "GitHub App installation ID on the specterrealm-homelab org. HCP workspace variable: specterrealm_homelab_github_app_installation_id."
-}
 
 variable "managed_repositories" {
   type = list(object({
