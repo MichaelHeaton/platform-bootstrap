@@ -56,6 +56,15 @@ resource "tfe_variable" "aws_run_role_arn" {
   category     = "env"
 }
 
+resource "tfe_variable" "aws_workload_identity_audience" {
+  for_each = local.pipelines_map
+
+  workspace_id = tfe_workspace.spoke[each.key].id
+  key          = "TFC_AWS_WORKLOAD_IDENTITY_AUDIENCE"
+  value        = "aws.workload.identity"
+  category     = "env"
+}
+
 resource "tfe_variable" "aws_region" {
   for_each = local.pipelines_map
 

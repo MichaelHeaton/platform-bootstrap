@@ -10,6 +10,11 @@ locals {
     for k, p in local.pipelines_map :
     k => coalesce(p.tfe_workspace_name, p.repo_name)
   }
+
+  pipeline_tfe_sm_keys = {
+    for k, p in local.pipelines_map : k => p
+    if length(p.secretsmanager_secret_names) > 0
+  }
 }
 
 data "aws_region" "current" {}
@@ -54,7 +59,10 @@ resource "aws_iam_role" "pipeline_tfe" {
             "${replace(local.tfe_oidc_url, "https://", "")}:aud" = "aws.workload.identity"
           }
           StringLike = {
-            "${replace(local.tfe_oidc_url, "https://", "")}:sub" = "organization:${var.tfe_organization}:workspace:${local.workspace_name[each.key]}:run_phase:*"
+            "${replace(local.tfe_oidc_url, "https://", "")}:sub" = [
+              "organization:${var.tfe_organization}:workspace:${local.workspace_name[each.key]}:run_phase:*",
+              "organization:${var.tfe_organization}:project:*:workspace:${local.workspace_name[each.key]}:run_phase:*",
+            ]
           }
         }
       }
@@ -70,10 +78,7 @@ resource "aws_iam_role" "pipeline_tfe" {
 }
 
 resource "aws_iam_policy" "pipeline_tfe" {
-  for_each = {
-    for k, p in local.pipelines_map : k => p
-    if length(p.secretsmanager_secret_names) > 0
-  }
+  for_each = local.pipeline_tfe_sm_keys
 
   name        = "${each.key}-tfe-access"
   description = "HCP Terraform run permissions for workspace ${local.workspace_name[each.key]}."
@@ -106,8 +111,8 @@ resource "aws_iam_policy" "pipeline_tfe" {
 }
 
 resource "aws_iam_role_policy_attachment" "pipeline_tfe" {
-  for_each = aws_iam_policy.pipeline_tfe
+  for_each = local.pipeline_tfe_sm_keys
 
   role       = aws_iam_role.pipeline_tfe[each.key].name
-  policy_arn = each.value.arn
+  policy_arn = aws_iam_policy.pipeline_tfe[each.key].arn
 }
