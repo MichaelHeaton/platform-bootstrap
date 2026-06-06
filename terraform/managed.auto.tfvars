@@ -11,6 +11,25 @@ pipelines = [
     allowed_refs                = ["refs/heads/main"]
     secretsmanager_secret_names = ["personal/cloudflare-api-token"]
   },
+  {
+    repo_name                   = "minecraft-modpack-cp-verdant"
+    environment                 = "personal"
+    cloud                       = "aws"
+    function                    = "curseforge-verdant"
+    allowed_refs                = ["refs/heads/main", "refs/tags/v*"]
+    secretsmanager_secret_names = ["personal/curseforge-api-key"]
+    tfe_workspace_enabled       = false
+  },
+  {
+    repo_name                   = "specterrealm-core"
+    github_org                  = "SpecterRealm"
+    environment                 = "personal"
+    cloud                       = "aws"
+    function                    = "curseforge-specterrealm-core"
+    allowed_refs                = ["refs/heads/main", "refs/tags/v*"]
+    secretsmanager_secret_names = ["personal/curseforge-api-key"]
+    tfe_workspace_enabled       = false
+  },
 ]
 
 service_accounts = [
