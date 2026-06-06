@@ -20,15 +20,20 @@ McCleaton aligns with HCP (`McCleaton-Bootstrap`) and AWS naming (`mccleaton-tfs
 different org handle, change `mccleaton_org` in `terraform/variables.tf` and matching pipeline
 `github_org` values.
 
-Credential flow:
+Credential flow (HCP Terraform):
 
 ```text
-GitHub Actions (OIDC) on McCleaton/cloudflare
-  → IAM role shared-cloudflare-dns-github-actions
-    → S3 state (shared-cloudflare-dns/*)
+HCP Terraform (McCleaton-Bootstrap/cloudflare) via VCS on McCleaton/cloudflare
+  → AWS dynamic credentials (IAM role shared-cloudflare-dns-tfe)
     → SM read personal/cloudflare-api-token
       → Cloudflare provider api_token
 ```
+
+GitHub Actions on the repo runs **validate only** (fmt + validate). Plan and apply are **not**
+in GHA — they run in HCP after merge to `main`.
+
+Legacy GHA OIDC role `shared-cloudflare-dns-github-actions` (S3 state) remains in AWS until
+state is migrated off S3; do not run GHA apply after HCP cutover.
 
 ---
 
@@ -83,18 +88,20 @@ Terraform creates `McCleaton/cloudflare`, the OIDC pipeline role, and SM read on
 > repos (requires Team/Enterprise or public visibility). `cloudflare` sets
 > `branch_protection = false` until McCleaton is upgraded. Rely on PR workflow discipline meanwhile.
 
-### Step 4 — Wire GitHub Actions on the cloudflare repo
+### Step 4 — HCP Terraform workspace (plan + apply)
+
+See **section 8** below. Complete before relying on VCS-driven applies.
+
+### Step 5 — Wire GitHub Actions (validate only)
 
 ```bash
-terraform -chdir=terraform output -json pipeline_role_arns | jq -r '."shared-cloudflare-dns"'
-
-gh secret set AWS_ROLE_ARN --repo McCleaton/cloudflare
-gh variable set AWS_REGION --body "us-west-2" --repo McCleaton/cloudflare
-gh variable set TF_STATE_BUCKET_NAME --body "mccleaton-tfstate" --repo McCleaton/cloudflare
-gh variable set AWS_ACCOUNT_ID --body "336090301942" --repo McCleaton/cloudflare
+# HCP API token for terraform init -backend=false in PR validate workflow
+gh secret set TF_TOKEN_app_terraform_io --repo McCleaton/cloudflare
 ```
 
-### Step 5 — Push the cloudflare repo scaffold
+Do **not** set `AWS_ROLE_ARN` for plan/apply — HCP uses workspace dynamic credentials.
+
+### Step 6 — Push the cloudflare repo scaffold
 
 ```bash
 git clone git@github.com:McCleaton/cloudflare.git
@@ -104,7 +111,7 @@ git commit -m "feat: initial Cloudflare DNS Terraform with SM token read"
 git push origin main
 ```
 
-### Step 6 — Add DNS records
+### Step 7 — Add DNS records
 
 Add `cloudflare_record` resources (or `tf-module-dns-record`) per zone via PR.
 
@@ -115,10 +122,12 @@ Add `cloudflare_record` resources (or `tf-module-dns-record`) per zone via PR.
 | Item | Value |
 |---|---|
 | GitHub repo | `McCleaton/cloudflare` |
-| Pipeline key | `shared-cloudflare-dns` |
+| HCP org / workspace | `McCleaton-Bootstrap` / `cloudflare` |
+| Pipeline key (IAM naming) | `shared-cloudflare-dns` |
 | Pipeline `github_org` | `McCleaton` |
-| IAM role | `shared-cloudflare-dns-github-actions` |
-| S3 state key | `shared-cloudflare-dns/terraform.tfstate` |
+| HCP AWS role | `shared-cloudflare-dns-tfe` (dynamic credentials) |
+| Legacy GHA OIDC role | `shared-cloudflare-dns-github-actions` (S3 — retire after migration) |
+| Legacy S3 state key | `shared-cloudflare-dns/terraform.tfstate` |
 | SM secret | `personal/cloudflare-api-token` |
 
 ---
@@ -126,12 +135,11 @@ Add `cloudflare_record` resources (or `tf-module-dns-record`) per zone via PR.
 ## 5. Local development
 
 ```bash
-export AWS_PROFILE=platform-bootstrap
-export AWS_REGION=us-west-2
-export TF_STATE_BUCKET_NAME=mccleaton-tfstate
-
+terraform login
 make init plan
 ```
+
+Use `AWS_PROFILE=platform-bootstrap` when running local plan if not using HCP remote execution.
 
 ---
 
@@ -141,8 +149,94 @@ See runbook 08 — **Tunnel** and **R2** tokens are separate secrets. Do not wid
 
 ---
 
+## 8. HCP Terraform workspace setup
+
+### 8.1 Create workspace
+
+1. Open [McCleaton-Bootstrap](https://app.terraform.io/app/McCleaton-Bootstrap/workspaces)
+2. **New workspace** → **Version control workflow**
+3. Connect **McCleaton** GitHub App / OAuth (same org as `McCleaton/cloudflare`)
+4. Repository: `McCleaton/cloudflare`, branch `main`
+5. **Terraform working directory:** `terraform`
+6. Workspace name: **`cloudflare`**
+7. Auto-apply: **off** (apply on merge via manual run or enable later)
+
+Confirm `terraform/versions.tf` contains:
+
+```hcl
+cloud {
+  organization = "McCleaton-Bootstrap"
+  workspaces { name = "cloudflare" }
+}
+```
+
+### 8.2 AWS dynamic provider credentials
+
+Use [HCP AWS quick setup](https://developer.hashicorp.com/terraform/cloud-docs/workspaces/dynamic-provider-credentials/aws-configuration/quick-setup)
+or configure manually:
+
+1. **IAM OIDC provider** for `https://app.terraform.io` (if not already present from
+   `platform-bootstrap` setup)
+2. **IAM role** `shared-cloudflare-dns-tfe` with trust policy scoped to:
+   - `organization:McCleaton-Bootstrap`
+   - `workspace:cloudflare`
+3. **Attach policy** allowing SM read on `personal/cloudflare-api-token` (same actions as the
+   GHA pipeline role: `GetSecretValue`, `DescribeSecret`, `GetResourcePolicy`)
+
+Workspace **environment** variables (category env, not terraform):
+
+| Variable | Value |
+|---|---|
+| `TFC_AWS_PROVIDER_AUTH` | `true` |
+| `TFC_AWS_RUN_ROLE_ARN` | `arn:aws:iam::336090301942:role/shared-cloudflare-dns-tfe` |
+
+Optional workspace **terraform** variables:
+
+| Variable | Value |
+|---|---|
+| `aws_region` | `us-west-2` |
+
+### 8.3 GitHub validate secret
+
+```bash
+gh secret set TF_TOKEN_app_terraform_io --repo McCleaton/cloudflare
+# Token: HCP → User settings → Tokens → API token (org: McCleaton-Bootstrap)
+```
+
+### 8.4 Migrate state from S3 (one-time)
+
+If GHA already wrote state to S3:
+
+```bash
+cd ~/Projects/personal/cloudflare
+export AWS_PROFILE=platform-bootstrap
+
+# Temporarily init against S3 to pull state (if cloud block not yet merged, skip)
+# After cloud block is merged:
+terraform login
+cd terraform
+terraform init -migrate-state
+# Confirm migration into McCleaton-Bootstrap/cloudflare workspace
+terraform plan   # expect no changes
+```
+
+Alternatively: **HCP UI → workspace → States → upload** after downloading from S3:
+
+```bash
+aws s3 cp s3://mccleaton-tfstate/shared-cloudflare-dns/terraform.tfstate /tmp/cloudflare.tfstate
+```
+
+### 8.5 Verify
+
+1. Open a trivial PR on `McCleaton/cloudflare` → **Terraform Validate** passes
+2. Merge → HCP queues **plan** on `McCleaton-Bootstrap/cloudflare`
+3. Confirm plan reads SM and Cloudflare zones; apply when ready
+
+---
+
 ## 7. Related
 
 - [07 — GitHub App auth](./07-github-app-auth.md)
 - [08 — AWS Secrets Manager](./08-aws-secrets-manager.md)
 - Repo: `McCleaton/cloudflare`
+- HCP: [McCleaton-Bootstrap/cloudflare](https://app.terraform.io/app/McCleaton-Bootstrap/workspaces/cloudflare)
