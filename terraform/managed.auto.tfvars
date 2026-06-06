@@ -202,10 +202,11 @@ managed_repositories = [
 mccleaton_repositories = [
   # ── Platform / domain infrastructure ────────────────────────────────────────
   {
-    name        = "cloudflare"
-    description = "Cloudflare DNS and edge configuration (Terraform spoke)"
-    visibility  = "private"
-    topics      = ["terraform", "cloudflare", "dns"]
+    name              = "cloudflare"
+    description       = "Cloudflare DNS and edge configuration (Terraform spoke)"
+    visibility        = "private"
+    topics            = ["terraform", "cloudflare", "dns"]
+    branch_protection = false # McCleaton free org: private branch protection requires GitHub Team
   },
 ]
 

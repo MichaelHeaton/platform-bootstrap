@@ -120,11 +120,11 @@ variable "mccleaton_repositories" {
     }))
 
     main_branch_ruleset = optional(bool, false)
+    branch_protection   = optional(bool, true)
   }))
   description = "GitHub repositories under mccleaton_org — platform factory spokes, not SpecterRealm game content."
   default     = []
 }
-
 
 variable "managed_repositories" {
   type = list(object({
@@ -164,6 +164,7 @@ variable "managed_repositories" {
     }))
 
     main_branch_ruleset = optional(bool, false)
+    branch_protection   = optional(bool, true)
   }))
   description = "GitHub repositories to manage. Must NOT include platform-bootstrap. See ADR-004."
   default     = []
@@ -209,6 +210,7 @@ variable "specterrealm_repositories" {
     }))
 
     main_branch_ruleset = optional(bool, false)
+    branch_protection   = optional(bool, true)
   }))
   description = "GitHub repositories to manage under the SpecterRealm org. Same schema as managed_repositories."
   default     = []
