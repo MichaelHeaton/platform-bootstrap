@@ -46,7 +46,7 @@ provider "github" {
   app_auth {
     id              = var.github_app_id
     installation_id = var.github_app_installation_id
-    pem_file        = var.github_app_pem
+    pem_file        = local.github_app_pem
   }
 }
 
@@ -57,7 +57,7 @@ provider "github" {
   app_auth {
     id              = var.github_app_id
     installation_id = var.specterrealm_github_app_installation_id
-    pem_file        = var.github_app_pem
+    pem_file        = local.github_app_pem
   }
 }
 
@@ -68,7 +68,7 @@ provider "github" {
   app_auth {
     id              = var.github_app_id
     installation_id = var.mccleaton_github_app_installation_id
-    pem_file        = var.github_app_pem
+    pem_file        = local.github_app_pem
   }
 }
 

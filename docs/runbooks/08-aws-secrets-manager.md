@@ -29,7 +29,7 @@ Naming convention:
 
 | Secret name | Purpose | Consumed by |
 |---|---|---|
-| `platform-bootstrap/github-app-pem` | GitHub App private key (app `3977205`) | HCP Terraform today (via HCP variable); SM is canonical store — Terraform SM read pending (#51) |
+| `platform-bootstrap/github-app-pem` | GitHub App private key (app `3977205`) | `platform-bootstrap` Terraform via SM at plan time |
 | `platform-bootstrap/tfe-api-token` | HCP org API token (workspace factory + `tfe` provider) | `platform-bootstrap` Terraform reads SM at plan time; fans out to spoke `TF_TOKEN_app_terraform_io` |
 | `personal/linear-api-token` | Linear API token (MCP / automation) | Workstation — not wired in this repo yet |
 | `personal/notion-api-token` | Notion integration token (MCP / automation) | Workstation — not wired in this repo yet |
@@ -101,8 +101,7 @@ See [07-github-app-auth.md](./07-github-app-auth.md) for App creation and HCP in
 ### HCP org API token (`tfe-api-token`)
 
 Create at [app.terraform.io](https://app.terraform.io) → User settings → **Tokens** (org-level
-token with permission to manage workspaces in `McCleaton-Bootstrap`), or reuse the token currently
-in the HCP workspace variable `tfe_api_token` during migration.
+token with permission to manage workspaces in `McCleaton-Bootstrap`).
 
 ```bash
 read -s "?HCP org API token: " TFE_API_TOKEN; echo
@@ -122,8 +121,6 @@ aws secretsmanager put-secret-value \
   --secret-id platform-bootstrap/tfe-api-token \
   --secret-string "$TFE_API_TOKEN"
 ```
-
-After Terraform reads SM successfully, delete the HCP workspace variable `tfe_api_token`.
 
 ### Linear API token
 
@@ -222,22 +219,21 @@ IAM grant on the consuming pipeline role. Do not widen the DNS token.
 
 ---
 
-## 4. HCP Terraform and SM (transitional)
+## 4. HCP Terraform and SM
 
-Today, HCP still passes the GitHub App PEM via workspace variable `github_app_pem` (terraform
-category). SM holds the **canonical copy**; HCP holds the **runtime copy** until Terraform reads
-SM directly ([#51](https://github.com/MichaelHeaton/platform-bootstrap/issues/51)).
+Long-lived secrets are read from SM at plan/apply time — not stored as HCP workspace variables.
 
-| Variable | Still in HCP? | Notes |
+| Secret / config | In HCP workspace? | SM path |
 |---|---|---|
-| `github_app_id` | Yes | Not secret — stays in HCP |
-| `github_app_installation_id` | Yes | Not secret |
-| `specterrealm_github_app_installation_id` | Yes | Not secret |
-| `github_app_pem` | Yes (for now) | Remove from HCP after Terraform reads SM |
-| `tfe_api_token` | No (removed) | Canonical copy in SM `platform-bootstrap/tfe-api-token` |
+| `github_app_id` | Yes (terraform var) | — |
+| `github_app_installation_id` | Yes | — |
+| `specterrealm_github_app_installation_id` | Yes | — |
+| `mccleaton_github_app_installation_id` | Yes | — |
+| GitHub App PEM | **No** | `platform-bootstrap/github-app-pem` |
+| HCP org API token | **No** | `platform-bootstrap/tfe-api-token` |
 
-When rotating the App private key: update **both** SM and HCP until the SM data source is merged.
-When rotating the HCP org API token: update SM only (`put-secret-value`).
+When rotating the App private key: `put-secret-value` in SM only — next HCP plan picks it up.
+When rotating the HCP org API token: update SM only.
 
 ---
 
@@ -268,7 +264,7 @@ workflows — see [09-cloudflare-terraform-repo.md](./09-cloudflare-terraform-re
 
 | Secret | How to rotate |
 |---|---|
-| `platform-bootstrap/github-app-pem` | GitHub App → Generate new private key → `put-secret-value` in SM → update HCP `github_app_pem` → delete old key in GitHub |
+| `platform-bootstrap/github-app-pem` | GitHub App → Generate new private key → `put-secret-value` in SM → delete old key in GitHub |
 | `platform-bootstrap/tfe-api-token` | HCP → new org API token → `put-secret-value` in SM → revoke old token |
 | `personal/linear-api-token` | Linear settings → new token → `put-secret-value` → update MCP env |
 | `personal/notion-api-token` | Notion integration → refresh secret → `put-secret-value` → update MCP env |

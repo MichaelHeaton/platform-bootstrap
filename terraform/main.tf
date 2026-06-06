@@ -108,7 +108,7 @@ module "github_repos" {
   codeowners                 = ["@MichaelHeaton"] # See CODEOWNERS
   github_org                 = var.github_org
   github_app_id              = var.github_app_id
-  github_app_pem             = var.github_app_pem
+  github_app_pem             = local.github_app_pem
   github_app_installation_id = var.github_app_installation_id
 }
 
@@ -387,7 +387,7 @@ module "github_repos_specterrealm" {
   codeowners                 = ["@MichaelHeaton"]
   github_org                 = "SpecterRealm"
   github_app_id              = var.github_app_id
-  github_app_pem             = var.github_app_pem
+  github_app_pem             = local.github_app_pem
   github_app_installation_id = var.specterrealm_github_app_installation_id
 }
 
@@ -404,7 +404,7 @@ module "github_repos_mccleaton" {
   codeowners                 = ["@MichaelHeaton"]
   github_org                 = var.mccleaton_org
   github_app_id              = var.github_app_id
-  github_app_pem             = var.github_app_pem
+  github_app_pem             = local.github_app_pem
   github_app_installation_id = var.mccleaton_github_app_installation_id
 }
 
