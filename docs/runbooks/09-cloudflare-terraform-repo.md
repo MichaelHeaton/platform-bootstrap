@@ -7,12 +7,20 @@
 ## 1. Overview
 
 The `cloudflare` repository is a **domain spoke** — it owns Cloudflare DNS (and later tunnel/R2)
-resources. It does **not** live in platform-bootstrap.
+resources. It lives under the **SpecterRealm** org (not the personal account) so platform-bootstrap
+can create and manage it via the GitHub App (`POST /orgs/SpecterRealm/repos`).
+
+Why SpecterRealm?
+
+- Platform/domain infrastructure belongs in an org, alongside pack repos and shared modules
+- GitHub App installation tokens **cannot create** new repos on personal accounts
+- `specterrealm-homelab` is reserved for homelab config repos (Proxmox, Ansible) — DNS/edge is
+  cross-cutting platform infra, not homelab-internal
 
 Credential flow:
 
 ```text
-GitHub Actions (OIDC)
+GitHub Actions (OIDC) on SpecterRealm/cloudflare
   → IAM role shared-cloudflare-dns-github-actions
     → S3 state (shared-cloudflare-dns/*)
     → SM read personal/cloudflare-api-token
@@ -26,50 +34,31 @@ GitHub Actions (OIDC)
 - [08-aws-secrets-manager.md](./08-aws-secrets-manager.md) — `personal/cloudflare-api-token`
   uploaded and verified (`platform-terraform-dns`, 5 zones)
 - platform-bootstrap GitHub App auth merged and HCP green (runbook 07)
+- GitHub App installed on **SpecterRealm** with org **Administration** write
 - `gh` CLI authenticated
 
 ---
 
 ## 3. Steps (in order)
 
-### Step 1 — Merge platform-bootstrap PRs
+### Step 1 — Merge platform-bootstrap and apply
 
-1. Merge the open **GitHub App + SM docs** PR (`feat/github-app-auth`) — done (#52).
-2. Merge the **cloudflare registration** PR (#53).
-3. If apply failed on repo create, merge the **fix PR** (`fix/cloudflare-apply-errors`) and follow
-   step 1b below.
-4. Confirm HCP apply is green on `main`.
+1. Merge #53 (cloudflare registration) — done.
+2. Merge #54 (IAM fix + SpecterRealm org placement + pipeline `github_org`).
+3. Confirm HCP apply is green on `main`.
 
-#### Step 1b — Personal account repo bootstrap (required once)
-
-GitHub App tokens **cannot create** new repositories on the `MichaelHeaton` user account.
-Create the empty repo manually, then let Terraform adopt it:
-
-```bash
-gh repo create MichaelHeaton/cloudflare \
-  --private \
-  --description "Cloudflare DNS and edge configuration (Terraform spoke)" \
-  --disable-wiki --disable-issues=false
-```
-
-The fix PR adds a declarative `import` block for this repo. Queue a new HCP apply after the
-repo exists and the fix is merged.
-
-This creates the empty `MichaelHeaton/cloudflare` GitHub repository. Terraform then manages
-branch protection, CODEOWNERS, and settings. IAM role `shared-cloudflare-dns-github-actions`
-is created by the same apply (SM read is folded into the `*-state-access` policy).
+Terraform creates `SpecterRealm/cloudflare`, the OIDC pipeline role (trust:
+`repo:SpecterRealm/cloudflare:ref:refs/heads/main`), and SM read on the state policy.
 
 ### Step 2 — Wire GitHub Actions on the cloudflare repo
 
-After apply, read the pipeline role ARN from platform-bootstrap outputs (HCP UI or local
-`terraform output pipeline_role_arns`):
+After apply, read the pipeline role ARN:
 
 ```bash
-# From platform-bootstrap clone with AWS/HCP access
 terraform -chdir=terraform output -json pipeline_role_arns | jq -r '."shared-cloudflare-dns"'
 ```
 
-Set repository configuration on `MichaelHeaton/cloudflare`:
+Set repository configuration on `SpecterRealm/cloudflare`:
 
 | Type | Name | Value |
 |---|---|---|
@@ -79,20 +68,18 @@ Set repository configuration on `MichaelHeaton/cloudflare`:
 | Variable | `AWS_ACCOUNT_ID` | `336090301942` |
 
 ```bash
-gh secret set AWS_ROLE_ARN --repo MichaelHeaton/cloudflare
-gh variable set AWS_REGION --body "us-west-2" --repo MichaelHeaton/cloudflare
-gh variable set TF_STATE_BUCKET_NAME --body "mccleaton-tfstate" --repo MichaelHeaton/cloudflare
-gh variable set AWS_ACCOUNT_ID --body "336090301942" --repo MichaelHeaton/cloudflare
+gh secret set AWS_ROLE_ARN --repo SpecterRealm/cloudflare
+gh variable set AWS_REGION --body "us-west-2" --repo SpecterRealm/cloudflare
+gh variable set TF_STATE_BUCKET_NAME --body "mccleaton-tfstate" --repo SpecterRealm/cloudflare
+gh variable set AWS_ACCOUNT_ID --body "336090301942" --repo SpecterRealm/cloudflare
 ```
 
 ### Step 3 — Push the cloudflare repo
 
-Clone the (initially empty) repo and push the scaffold from your workstation:
-
 ```bash
-git clone git@github.com:MichaelHeaton/cloudflare.git
+git clone git@github.com:SpecterRealm/cloudflare.git
 cd cloudflare
-# Copy scaffold from your platform-bootstrap PR branch or merge commit
+# Copy scaffold from ~/Projects/personal/cloudflare
 git add .
 git commit -m "feat: initial Cloudflare DNS Terraform with SM token read"
 git push origin main
@@ -117,7 +104,9 @@ changes in PRs with plan output review.
 
 | Item | Value |
 |---|---|
+| GitHub repo | `SpecterRealm/cloudflare` |
 | Pipeline key | `shared-cloudflare-dns` |
+| Pipeline `github_org` | `SpecterRealm` |
 | IAM role | `shared-cloudflare-dns-github-actions` |
 | S3 state key | `shared-cloudflare-dns/terraform.tfstate` |
 | SM secret | `personal/cloudflare-api-token` |
@@ -163,4 +152,4 @@ grants. Do not add tunnel/R2 permissions to `platform-terraform-dns`.
 
 - [08 — AWS Secrets Manager](./08-aws-secrets-manager.md)
 - `AGENTS.md` — platform factory vs domain spokes
-- Repo: `MichaelHeaton/cloudflare`
+- Repo: `SpecterRealm/cloudflare`

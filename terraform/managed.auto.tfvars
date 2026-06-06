@@ -4,6 +4,7 @@
 pipelines = [
   {
     repo_name                   = "cloudflare"
+    github_org                  = "SpecterRealm"
     environment                 = "shared"
     cloud                       = "cloudflare"
     function                    = "dns"
@@ -57,12 +58,6 @@ managed_repositories = [
     name        = "workstation-devops"
     description = "Personal workstation setup: dotfiles, software installs, and tooling configuration"
     visibility  = "public"
-  },
-  {
-    name        = "cloudflare"
-    description = "Cloudflare DNS and edge configuration (Terraform spoke)"
-    visibility  = "private"
-    topics      = ["terraform", "cloudflare", "dns"]
   },
 
   # ── Skills & tooling ────────────────────────────────────────────────────────
@@ -205,6 +200,14 @@ managed_repositories = [
 ]
 
 specterrealm_repositories = [
+  # ── Platform / domain infrastructure ────────────────────────────────────────
+  {
+    name        = "cloudflare"
+    description = "Cloudflare DNS and edge configuration (Terraform spoke)"
+    visibility  = "private"
+    topics      = ["terraform", "cloudflare", "dns"]
+  },
+
   # ── SpecterRealm — shared library ───────────────────────────────────────────
   {
     name        = "specterrealm-core"

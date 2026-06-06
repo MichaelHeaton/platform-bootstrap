@@ -21,6 +21,7 @@ variable "github_org" {
 variable "pipelines" {
   type = list(object({
     repo_name                   = string
+    github_org                  = optional(string)
     environment                 = string
     cloud                       = string
     function                    = string

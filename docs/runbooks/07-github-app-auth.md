@@ -63,9 +63,10 @@ Install the same app on **both** required targets (homelab install is optional u
 
 > **Personal account limitation:** GitHub App installation tokens can manage existing
 > repos on your user account but **cannot create new ones** (`POST /user/repos` requires a
-> user token). For new repos under `MichaelHeaton`, create the empty repo manually first
-> (`gh repo create …`), then let Terraform adopt it via an `import` block or
-> `terraform import`. Org repos (`SpecterRealm`) do not have this restriction.
+> user token). **Register new infrastructure spokes under an org** (e.g. `SpecterRealm`)
+> where the App uses `POST /orgs/{org}/repos`. Existing personal repos remain in
+> `managed_repositories`; org infra repos go in `specterrealm_repositories` with
+> `github_org = "SpecterRealm"` on the pipeline entry.
 
 ### SpecterRealm (organization)
 
@@ -140,8 +141,8 @@ If you see 403 errors, check:
 
 | Symptom | Fix |
 |---|---|
-| `POST /user/repos` on personal account | GitHub App cannot create user repos — create manually, then import into state |
-| Org repo create 403 | App missing Administration write, or pending permission approval on installation |
+| `POST /user/repos` on personal account | Move new infra repo to an org (`specterrealm_repositories`) — App cannot create user repos |
+| Org repo create 403 | App missing org **Administration** write, or pending permission approval on installation |
 | Other 403 | `owner` set on provider; installation ID matches target; accept pending permission requests |
 
 Also verify:

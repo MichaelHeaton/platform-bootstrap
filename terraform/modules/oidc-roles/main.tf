@@ -38,7 +38,7 @@ resource "aws_iam_role" "pipeline" {
   for_each = local.pipelines_map
 
   name        = "${each.key}-github-actions"
-  description = "Assumed by GitHub Actions for ${each.value.repo_name} (${each.value.environment}/${each.value.cloud}/${each.value.function})"
+  description = "Assumed by GitHub Actions for ${coalesce(each.value.github_org, var.github_org)}/${each.value.repo_name} (${each.value.environment}/${each.value.cloud}/${each.value.function})"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -60,7 +60,7 @@ resource "aws_iam_role" "pipeline" {
             # path is always fully-qualified with no wildcards.
             "token.actions.githubusercontent.com:sub" = [
               for ref in each.value.allowed_refs :
-              "repo:${var.github_org}/${each.value.repo_name}:ref:${ref}"
+              "repo:${coalesce(each.value.github_org, var.github_org)}/${each.value.repo_name}:ref:${ref}"
             ]
           }
         }
