@@ -13,6 +13,9 @@ on:
     paths:
       - "terraform/**"
       - ".github/workflows/terraform-*.yml"
+      - "docs/**"
+      - "AGENTS.md"
+      - "README.md"
 
 permissions:
   contents: read
