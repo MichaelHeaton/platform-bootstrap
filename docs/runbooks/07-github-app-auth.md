@@ -112,14 +112,9 @@ Add these workspace variables (category **terraform**, not env):
 > [08-aws-secrets-manager.md](./08-aws-secrets-manager.md).
 > - `platform-bootstrap/github-app-pem` — GitHub App private key (not an HCP variable)
 > - `platform-bootstrap/tfe-api-token` — HCP org API token (not an HCP variable)
-> - `platform-bootstrap/tfe-api-token` — org-level HCP API token; Terraform reads SM at
->   plan time (no HCP variable).
 
-Example PEM format for HCP (single line):
-
-```text
------BEGIN RSA PRIVATE KEY-----\nMIIE...\n-----END RSA PRIVATE KEY-----\n
-```
+Also set env vars for AWS dynamic credentials (`TFC_AWS_*`) — see runbook 02 or the HCP workspace
+UI. Expected count: **12** workspace variables (9 terraform + 3 env), no sensitive secrets in HCP.
 
 ---
 

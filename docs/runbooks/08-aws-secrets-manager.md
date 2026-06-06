@@ -287,5 +287,6 @@ Never commit secret values to git or paste them into PR descriptions.
 
 - [07 — GitHub App authentication](./07-github-app-auth.md)
 - [09 — Cloudflare Terraform repo](./09-cloudflare-terraform-repo.md)
-- [Issue #51 — Migrate secrets to AWS Secrets Manager](https://github.com/MichaelHeaton/platform-bootstrap/issues/51)
+- [Issue #51 — Migrate secrets to AWS Secrets Manager](https://github.com/MichaelHeaton/platform-bootstrap/issues/51) (closed)
+- [Issue #63 — Post-cloudflare rollout housekeeping](https://github.com/MichaelHeaton/platform-bootstrap/issues/63)
 - `AGENTS.md` — credential tier strategy
