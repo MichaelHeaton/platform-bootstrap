@@ -120,7 +120,8 @@ resource "aws_iam_policy" "pipeline_state" {
           Effect = "Allow"
           Action = [
             "secretsmanager:GetSecretValue",
-            "secretsmanager:DescribeSecret"
+            "secretsmanager:DescribeSecret",
+            "secretsmanager:GetResourcePolicy"
           ]
           Resource = [
             for secret_name in each.value.secretsmanager_secret_names :
