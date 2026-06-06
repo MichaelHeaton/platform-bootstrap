@@ -34,13 +34,30 @@ GitHub Actions (OIDC)
 
 ### Step 1 — Merge platform-bootstrap PRs
 
-1. Merge the open **GitHub App + SM docs** PR (`feat/github-app-auth`).
-2. Merge the **cloudflare registration** PR (adds `cloudflare` to `managed_repositories`,
-   pipeline entry, SM IAM on the pipeline role).
-3. Confirm HCP apply is green on `main`.
+1. Merge the open **GitHub App + SM docs** PR (`feat/github-app-auth`) — done (#52).
+2. Merge the **cloudflare registration** PR (#53).
+3. If apply failed on repo create, merge the **fix PR** (`fix/cloudflare-apply-errors`) and follow
+   step 1b below.
+4. Confirm HCP apply is green on `main`.
 
-This creates the empty `MichaelHeaton/cloudflare` GitHub repository and IAM role
-`shared-cloudflare-dns-github-actions`.
+#### Step 1b — Personal account repo bootstrap (required once)
+
+GitHub App tokens **cannot create** new repositories on the `MichaelHeaton` user account.
+Create the empty repo manually, then let Terraform adopt it:
+
+```bash
+gh repo create MichaelHeaton/cloudflare \
+  --private \
+  --description "Cloudflare DNS and edge configuration (Terraform spoke)" \
+  --disable-wiki --disable-issues=false
+```
+
+The fix PR adds a declarative `import` block for this repo. Queue a new HCP apply after the
+repo exists and the fix is merged.
+
+This creates the empty `MichaelHeaton/cloudflare` GitHub repository. Terraform then manages
+branch protection, CODEOWNERS, and settings. IAM role `shared-cloudflare-dns-github-actions`
+is created by the same apply (SM read is folded into the `*-state-access` policy).
 
 ### Step 2 — Wire GitHub Actions on the cloudflare repo
 

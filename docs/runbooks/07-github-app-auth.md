@@ -61,6 +61,12 @@ Install the same app on **both** required targets (homelab install is optional u
 3. Note the **Installation ID** from the URL:
    `https://github.com/settings/installations/<INSTALLATION_ID>`
 
+> **Personal account limitation:** GitHub App installation tokens can manage existing
+> repos on your user account but **cannot create new ones** (`POST /user/repos` requires a
+> user token). For new repos under `MichaelHeaton`, create the empty repo manually first
+> (`gh repo create …`), then let Terraform adopt it via an `import` block or
+> `terraform import`. Org repos (`SpecterRealm`) do not have this restriction.
+
 ### SpecterRealm (organization)
 
 1. Install App → **SpecterRealm** org
@@ -131,6 +137,14 @@ After merging the GitHub App auth Terraform changes:
 3. Confirm managed repos plan cleanly (no PAT-related variable errors)
 
 If you see 403 errors, check:
+
+| Symptom | Fix |
+|---|---|
+| `POST /user/repos` on personal account | GitHub App cannot create user repos — create manually, then import into state |
+| Org repo create 403 | App missing Administration write, or pending permission approval on installation |
+| Other 403 | `owner` set on provider; installation ID matches target; accept pending permission requests |
+
+Also verify:
 
 - `owner` is set on each provider (`MichaelHeaton` / `SpecterRealm`)
 - Installation ID matches the account/org being managed
