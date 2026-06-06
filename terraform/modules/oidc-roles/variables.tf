@@ -15,11 +15,12 @@ variable "state_bucket_arn" {
 
 variable "pipelines" {
   type = list(object({
-    repo_name    = string
-    environment  = string
-    cloud        = string
-    function     = string
-    allowed_refs = list(string)
+    repo_name                   = string
+    environment                 = string
+    cloud                       = string
+    function                    = string
+    allowed_refs                = list(string)
+    secretsmanager_secret_names = optional(list(string), [])
   }))
   description = "Pipeline definitions. Each produces one IAM role with explicit, narrow S3 permissions."
 }

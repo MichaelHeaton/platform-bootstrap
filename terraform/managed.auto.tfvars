@@ -1,6 +1,17 @@
 # Infrastructure managed by this platform.
 # Add new repos, pipelines, and service accounts here — Terraform picks this file up automatically.
 
+pipelines = [
+  {
+    repo_name                   = "cloudflare"
+    environment                 = "shared"
+    cloud                       = "cloudflare"
+    function                    = "dns"
+    allowed_refs                = ["refs/heads/main"]
+    secretsmanager_secret_names = ["personal/cloudflare-api-token"]
+  },
+]
+
 service_accounts = [
   # Each entry creates: S3 artifacts bucket, Lambda permission boundary, GitHub Actions OIDC deploy role.
   # The deploy role is scoped to {service_name}-* resources and cannot delete the bucket or modify IAM
@@ -46,6 +57,12 @@ managed_repositories = [
     name        = "workstation-devops"
     description = "Personal workstation setup: dotfiles, software installs, and tooling configuration"
     visibility  = "public"
+  },
+  {
+    name        = "cloudflare"
+    description = "Cloudflare DNS and edge configuration (Terraform spoke)"
+    visibility  = "private"
+    topics      = ["terraform", "cloudflare", "dns"]
   },
 
   # ── Skills & tooling ────────────────────────────────────────────────────────

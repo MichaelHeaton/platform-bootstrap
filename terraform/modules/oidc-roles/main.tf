@@ -129,3 +129,51 @@ resource "aws_iam_role_policy_attachment" "pipeline_state" {
   role       = aws_iam_role.pipeline[each.key].name
   policy_arn = aws_iam_policy.pipeline_state[each.key].arn
 }
+
+locals {
+  pipeline_secret_names = {
+    for key, pipeline in local.pipelines_map : key => pipeline.secretsmanager_secret_names
+    if length(pipeline.secretsmanager_secret_names) > 0
+  }
+}
+
+resource "aws_iam_policy" "pipeline_secrets" {
+  for_each = local.pipeline_secret_names
+
+  name        = "${each.key}-secrets-access"
+  description = "Grants read access to Secrets Manager secrets for pipeline ${each.key}."
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "ReadPipelineSecrets"
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret"
+        ]
+        Resource = [
+          for secret_name in each.value :
+          "arn:aws:secretsmanager:${data.aws_region.current.name}:${var.aws_account_id}:secret:${secret_name}-*"
+        ]
+      }
+    ]
+  })
+
+  tags = {
+    environment = local.pipelines_map[each.key].environment
+    cloud       = local.pipelines_map[each.key].cloud
+    function    = local.pipelines_map[each.key].function
+    managed-by  = "terraform"
+  }
+}
+
+data "aws_region" "current" {}
+
+resource "aws_iam_role_policy_attachment" "pipeline_secrets" {
+  for_each = local.pipeline_secret_names
+
+  role       = aws_iam_role.pipeline[each.key].name
+  policy_arn = aws_iam_policy.pipeline_secrets[each.key].arn
+}

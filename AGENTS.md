@@ -20,10 +20,10 @@ Proxmox VMs live here.
 |---|---|---|
 | Ephemeral | OIDC / federated identity — no stored secret | AWS deploy roles for service repos (ADR-002) |
 | Short-lived | GitHub App installation tokens (~1 hour, auto-minted) | Terraform `integrations/github` providers |
-| Stored | AWS Secrets Manager (scoped IAM per consumer) | App private key PEM (future), Cloudflare/Azure tokens in spoke repos |
+| Stored | AWS Secrets Manager (scoped IAM per consumer) | `platform-bootstrap/github-app-pem`; `personal/cloudflare-api-token` (DNS, 5 zones); workstation: `personal/linear-api-token`, `personal/notion-api-token` — see runbooks 08–09 |
 
 Do **not** introduce user PATs with manual expiry for Terraform automation. Use a GitHub App
-(see runbook 07).
+(see runbook 07). Store long-lived material in AWS Secrets Manager (see runbook 08).
 
 ## Quick reference
 
@@ -45,7 +45,8 @@ Do **not** introduce user PATs with manual expiry for Terraform automation. Use 
 - **No `requirements.txt`**: Python dependencies (`pytest`) are installed directly via `pip3 install pytest`. The compliance script's heavy dependencies (`boto3`, `requests`) are optional and only needed for full (non-structural) checks that require AWS/GitHub credentials.
 - **Terraform >= 1.10.0 is required** (for S3 native state locking). The update script installs Terraform 1.15.4 to `/usr/local/bin/terraform`. To upgrade, change the version in the update script.
 - The `.terraform/` directory created by `terraform init` is gitignored and ephemeral; re-run init after a fresh clone.
-- **Two GitHub providers, one GitHub App**: `provider "github"` (default, owner = `MichaelHeaton`) and `provider "github" { alias = "specterrealm" }` (owner = `SpecterRealm`). Both authenticate via the same GitHub App (`github_app_id` + `github_app_pem`) with **different installation IDs** per account/org. HCP workspace variables (terraform category): `github_app_id`, `github_app_pem`, `github_app_installation_id`, `specterrealm_github_app_installation_id`. Setup: `docs/runbooks/07-github-app-auth.md`.
+- **Two GitHub providers, one GitHub App**: `provider "github"` (default, owner = `MichaelHeaton`) and `provider "github" { alias = "specterrealm" }` (owner = `SpecterRealm`). Both authenticate via the same GitHub App (`github_app_id` + `github_app_pem`) with **different installation IDs** per account/org. HCP workspace variables (terraform category): `github_app_id`, `github_app_pem`, `github_app_installation_id`, `specterrealm_github_app_installation_id`. App setup: `docs/runbooks/07-github-app-auth.md`. PEM canonical store in SM: `platform-bootstrap/github-app-pem` — `docs/runbooks/08-aws-secrets-manager.md`.
+- **Domain spokes read SM at plan time**: the `cloudflare` repo reads `personal/cloudflare-api-token` via `data.aws_secretsmanager_secret_version` and passes it to the Cloudflare provider. The pipeline OIDC role gets scoped `secretsmanager:GetSecretValue` only on that secret — see runbook 09.
 - **platform-bootstrap excludes itself from GitHub Terraform management** (ADR-004). It is the foundation — if broken, repair via HCP UI and local Terraform, not via itself.
 
 ## Cursor Cloud specific instructions
