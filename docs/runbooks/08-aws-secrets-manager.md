@@ -34,8 +34,9 @@ Naming convention:
 | `personal/linear-api-token` | Linear API token (MCP / automation) | Workstation — not wired in this repo yet |
 | `personal/notion-api-token` | Notion integration token (MCP / automation) | Workstation — not wired in this repo yet |
 | `personal/cloudflare-api-token` | Cloudflare API token `platform-terraform-dns` — DNS Edit + Zone Read on 5 zones | HCP workspace `cloudflare` via `shared-cloudflare-dns-tfe` dynamic creds — see runbook 09 |
+| `personal/curseforge-api-key` | CurseForge legacy upload API key (`X-Api-Token`) | GHA OIDC on `minecraft-modpack-cp-verdant` + `specterrealm-core`; workstation `make upload-cf` |
 
-Verify all five exist:
+Verify all six exist:
 
 ```bash
 export AWS_PROFILE=platform-bootstrap
@@ -46,6 +47,7 @@ aws secretsmanager describe-secret --secret-id platform-bootstrap/tfe-api-token 
 aws secretsmanager describe-secret --secret-id personal/linear-api-token --query Name --output text
 aws secretsmanager describe-secret --secret-id personal/notion-api-token --query Name --output text
 aws secretsmanager describe-secret --secret-id personal/cloudflare-api-token --query Name --output text
+aws secretsmanager describe-secret --secret-id personal/curseforge-api-key --query Name --output text
 ```
 
 Check PEM length without printing the value:
@@ -204,6 +206,44 @@ unset CLOUDFLARE_API_TOKEN
 
 Use `put-secret-value` instead of `create-secret` if updating an existing secret.
 
+### CurseForge API key
+
+Create or copy at [CurseForge Authors → API Tokens](https://authors.curseforge.com/#/settings/api-tokens). One token can upload to both Colony Protocol: Verdant (modpack) and SpecterRealm Core (mod).
+
+```bash
+read -s "?CurseForge API key: " CURSEFORGE_API_KEY; echo
+
+aws secretsmanager create-secret \
+  --name personal/curseforge-api-key \
+  --description "CurseForge legacy upload API key" \
+  --secret-string "$CURSEFORGE_API_KEY"
+
+unset CURSEFORGE_API_KEY
+```
+
+Use `put-secret-value` instead of `create-secret` if updating an existing secret.
+
+Verify without printing the value:
+
+```bash
+aws secretsmanager get-secret-value \
+  --secret-id personal/curseforge-api-key \
+  --query 'length(SecretString)' \
+  --output text
+```
+
+**CI:** After uploading the secret, apply `platform-bootstrap` Terraform (pipelines in `managed.auto.tfvars`). That creates OIDC roles and sets `AWS_CURSEFORGE_UPLOAD_ROLE_ARN` on each release repo. Workflows fetch the key at runtime — do **not** store it as a GitHub secret.
+
+**Workstation:**
+
+```bash
+export AWS_PROFILE=platform-bootstrap AWS_REGION=us-west-2
+export CURSEFORGE_API_KEY="$(aws secretsmanager get-secret-value \
+  --secret-id personal/curseforge-api-key \
+  --query SecretString --output text)"
+make upload-cf   # minecraft-modpack-cp-verdant
+```
+
 #### Optional: additional Cloudflare tokens (later)
 
 The DNS token above is enough for the `cloudflare` Terraform repo. Add separate tokens only
@@ -255,8 +295,14 @@ uploads. Do not grant `platform-bootstrap/*` read to unrelated spoke workspaces.
 
 Spoke **TFE** roles (e.g. `shared-cloudflare-dns-tfe`) receive scoped
 `secretsmanager:GetSecretValue` via their pipeline IAM policy when the secret is listed in the
-pipeline entry. Legacy GHA OIDC roles (`*-github-actions`) may still exist for validate-only
-workflows — see [09-cloudflare-terraform-repo.md](./09-cloudflare-terraform-repo.md).
+pipeline entry.
+
+**GHA OIDC** roles (`personal-aws-curseforge-*-github-actions`) receive scoped SM read when
+`personal/curseforge-api-key` is listed on the pipeline entry. Terraform sets
+`AWS_CURSEFORGE_UPLOAD_ROLE_ARN` on `minecraft-modpack-cp-verdant` and `specterrealm-core`.
+
+Legacy GHA OIDC roles on other spokes may still exist for validate-only workflows — see
+[09-cloudflare-terraform-repo.md](./09-cloudflare-terraform-repo.md).
 
 ---
 
@@ -269,6 +315,7 @@ workflows — see [09-cloudflare-terraform-repo.md](./09-cloudflare-terraform-re
 | `personal/linear-api-token` | Linear settings → new token → `put-secret-value` → update MCP env |
 | `personal/notion-api-token` | Notion integration → refresh secret → `put-secret-value` → update MCP env |
 | `personal/cloudflare-api-token` | Cloudflare dashboard → roll token → `put-secret-value` → update spoke repos / env |
+| `personal/curseforge-api-key` | CurseForge Console → revoke old key → create new → `put-secret-value` (no GitHub secret to update) |
 
 Never commit secret values to git or paste them into PR descriptions.
 
