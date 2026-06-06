@@ -26,6 +26,10 @@ Complete these in order. Each runbook assumes the previous one is done.
 3. [03 — Disaster Recovery](docs/runbooks/03-disaster-recovery.md)
 4. [04 — Add a Service](docs/runbooks/04-add-service.md)
 5. [05 — SpecterRealm Pack GitHub Settings](docs/runbooks/05-specterrealm-pack-github-settings.md)
+6. [06 — Rotate GitHub PATs (deprecated)](docs/runbooks/06-rotate-github-pats.md)
+7. [07 — GitHub App Authentication](docs/runbooks/07-github-app-auth.md)
+8. [08 — AWS Secrets Manager](docs/runbooks/08-aws-secrets-manager.md)
+9. [09 — Cloudflare Terraform Repo](docs/runbooks/09-cloudflare-terraform-repo.md)
 
 ## How to Add a New Project
 

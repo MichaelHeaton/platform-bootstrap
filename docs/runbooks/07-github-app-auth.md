@@ -92,6 +92,10 @@ Add these workspace variables (category **terraform**, not env):
 | `specterrealm_github_app_installation_id` | No | Installation ID on SpecterRealm |
 | `github_app_pem` | **Yes** | Full PEM file contents. Paste as one line using `\n` for newlines |
 
+> **Secrets Manager:** also store the PEM in SM as `platform-bootstrap/github-app-pem`
+> (canonical copy). See [08-aws-secrets-manager.md](./08-aws-secrets-manager.md). HCP
+> `github_app_pem` remains required until Terraform reads SM directly ([#51](https://github.com/MichaelHeaton/platform-bootstrap/issues/51)).
+
 Example PEM format for HCP (single line):
 
 ```text
@@ -139,13 +143,13 @@ If you see 403 errors, check:
 
 | Asset | Rotation |
 |---|---|
-| App private key | Generate new key in App settings → update `github_app_pem` in HCP → delete old key |
+| App private key | Generate new key in GitHub App settings → update SM (`platform-bootstrap/github-app-pem`) and HCP `github_app_pem` → delete old key in GitHub |
 | Installation | Re-install app if permissions change; installation ID usually stays the same |
 | App ID | Never changes unless you create a new app |
 
-**Future (issue #51):** store the PEM in AWS Secrets Manager and read via
-`aws_secretsmanager_secret_version` at plan time. The App private key still rotates rarely
-(manually); day-to-day Terraform uses auto-minted installation tokens.
+Full SM procedures: [08-aws-secrets-manager.md](./08-aws-secrets-manager.md). After
+[#51](https://github.com/MichaelHeaton/platform-bootstrap/issues/51) lands, HCP `github_app_pem`
+can be removed — SM becomes the only store for the PEM.
 
 ---
 

@@ -20,11 +20,12 @@ variable "github_org" {
 
 variable "pipelines" {
   type = list(object({
-    repo_name    = string
-    environment  = string
-    cloud        = string
-    function     = string
-    allowed_refs = list(string) # e.g. ["refs/heads/main"]
+    repo_name                   = string
+    environment                 = string
+    cloud                       = string
+    function                    = string
+    allowed_refs                = list(string)
+    secretsmanager_secret_names = optional(list(string), [])
   }))
   description = "Pipeline definitions. Each entry creates one IAM role scoped to exactly one S3 state folder."
   default     = []
@@ -54,7 +55,7 @@ variable "github_app_id" {
 variable "github_app_pem" {
   type        = string
   sensitive   = true
-  description = "GitHub App private key PEM contents. HCP workspace variable: github_app_pem (use \\n for newlines)."
+  description = "GitHub App private key PEM contents. Canonical copy in SM: platform-bootstrap/github-app-pem (runbook 08). Runtime: HCP variable github_app_pem until #51."
 }
 
 variable "github_app_installation_id" {
