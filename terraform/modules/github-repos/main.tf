@@ -51,7 +51,7 @@ resource "github_repository_vulnerability_alerts" "managed" {
 }
 
 resource "github_branch_protection" "main" {
-  for_each = local.repos_map
+  for_each = local.branch_protection_repos
 
   repository_id = github_repository.managed[each.key].node_id
   pattern       = each.value.default_branch

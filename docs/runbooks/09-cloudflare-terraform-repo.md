@@ -77,8 +77,11 @@ In `McCleaton-Bootstrap/platform-bootstrap`, add (terraform category):
 2. Merge #54 (McCleaton org module + IAM fix).
 3. Confirm HCP apply is green.
 
-Terraform creates `McCleaton/cloudflare`, updates the OIDC pipeline role (trust:
-`repo:McCleaton/cloudflare:ref:refs/heads/main`), and adds SM read to the state policy.
+Terraform creates `McCleaton/cloudflare`, the OIDC pipeline role, and SM read on the state policy.
+
+> **Branch protection:** GitHub Free orgs cannot enable classic branch protection on **private**
+> repos (requires Team/Enterprise or public visibility). `cloudflare` sets
+> `branch_protection = false` until McCleaton is upgraded. Rely on PR workflow discipline meanwhile.
 
 ### Step 4 — Wire GitHub Actions on the cloudflare repo
 

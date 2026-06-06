@@ -36,6 +36,7 @@ variable "repositories" {
     }))
 
     main_branch_ruleset = optional(bool, false)
+    branch_protection   = optional(bool, true)
   }))
   description = "Repositories to manage. Must NOT include platform-bootstrap (see ADR-004)."
 
