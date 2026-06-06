@@ -13,7 +13,7 @@ Benefits over PATs:
 
 - No 30/60/90-day expiry cycle to babysit
 - Narrow, auditable permissions on the App
-- Same App installed on `MichaelHeaton` and `SpecterRealm` with separate installation IDs
+- Same App installed on `MichaelHeaton`, **`McCleaton`**, and `SpecterRealm` with separate installation IDs
 - `specterrealm-homelab` is installed on the App for future use; no Terraform provider until homelab repos are managed here
 
 ---
@@ -37,7 +37,7 @@ Benefits over PATs:
    | Secrets | Read and write | `github_actions_secret` on service repos |
    | Variables | Read and write | `github_actions_variable` on service repos |
 
-6. Permissions — set **Organization permissions** (for SpecterRealm install):
+6. Permissions — set **Organization permissions** (for org installs — McCleaton, SpecterRealm):
 
    | Permission | Access | Why |
    |---|---|---|
@@ -61,7 +61,22 @@ Install the same app on **both** required targets (homelab install is optional u
 3. Note the **Installation ID** from the URL:
    `https://github.com/settings/installations/<INSTALLATION_ID>`
 
-### SpecterRealm (organization)
+> **Personal account limitation:** GitHub App installation tokens can manage existing
+> repos on your user account but **cannot create new ones** (`POST /user/repos` requires a
+> user token). **Register new infrastructure spokes under the McCleaton org**
+> (`mccleaton_repositories`) where the App uses `POST /orgs/{org}/repos`. SpecterRealm is
+> reserved for Minecraft/modpack content only.
+
+### McCleaton (organization — platform infrastructure)
+
+Create the org first — see [09-cloudflare-terraform-repo.md](./09-cloudflare-terraform-repo.md) step 0.
+
+1. Install App → **McCleaton** org
+2. Repository access: **All repositories**
+3. Note the **Installation ID** from:
+   `https://github.com/organizations/McCleaton/settings/installations/<INSTALLATION_ID>`
+
+### SpecterRealm (organization — Minecraft / modpacks)
 
 1. Install App → **SpecterRealm** org
 2. Repository access: **All repositories**
@@ -89,7 +104,8 @@ Add these workspace variables (category **terraform**, not env):
 |---|---|---|
 | `github_app_id` | No | App ID from step 2 |
 | `github_app_installation_id` | No | Installation ID on MichaelHeaton |
-| `specterrealm_github_app_installation_id` | No | Installation ID on SpecterRealm |
+| `mccleaton_github_app_installation_id` | No | Installation ID on McCleaton (platform infra org) |
+| `specterrealm_github_app_installation_id` | No | Installation ID on SpecterRealm (Minecraft/modpacks) |
 | `github_app_pem` | **Yes** | Full PEM file contents. Paste as one line using `\n` for newlines |
 
 > **Secrets Manager:** also store the PEM in SM as `platform-bootstrap/github-app-pem`
@@ -131,6 +147,14 @@ After merging the GitHub App auth Terraform changes:
 3. Confirm managed repos plan cleanly (no PAT-related variable errors)
 
 If you see 403 errors, check:
+
+| Symptom | Fix |
+|---|---|
+| `POST /user/repos` on personal account | Register new infra repo under **McCleaton** (`mccleaton_repositories`), not personal account |
+| Org repo create 403 | App missing org **Administration** write, or pending permission approval on installation |
+| Other 403 | `owner` set on provider; installation ID matches target; accept pending permission requests |
+
+Also verify:
 
 - `owner` is set on each provider (`MichaelHeaton` / `SpecterRealm`)
 - Installation ID matches the account/org being managed

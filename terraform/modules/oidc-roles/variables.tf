@@ -16,6 +16,7 @@ variable "state_bucket_arn" {
 variable "pipelines" {
   type = list(object({
     repo_name                   = string
+    github_org                  = optional(string)
     environment                 = string
     cloud                       = string
     function                    = string

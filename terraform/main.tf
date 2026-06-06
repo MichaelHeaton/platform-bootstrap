@@ -292,6 +292,23 @@ module "github_repos_specterrealm" {
   github_app_installation_id = var.specterrealm_github_app_installation_id
 }
 
+# ── McCleaton org repositories (platform / domain infrastructure) ─────────────
+
+module "github_repos_mccleaton" {
+  source = "./modules/github-repos"
+
+  providers = {
+    github = github.mccleaton
+  }
+
+  repositories               = var.mccleaton_repositories
+  codeowners                 = ["@MichaelHeaton"]
+  github_org                 = var.mccleaton_org
+  github_app_id              = var.github_app_id
+  github_app_pem             = var.github_app_pem
+  github_app_installation_id = var.mccleaton_github_app_installation_id
+}
+
 
 # DEFERRED: Multi-account AWS via AWS Organizations
 # See ADR-006: In-repo modules

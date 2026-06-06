@@ -4,6 +4,7 @@
 pipelines = [
   {
     repo_name                   = "cloudflare"
+    github_org                  = "McCleaton" # must match var.mccleaton_org (default)
     environment                 = "shared"
     cloud                       = "cloudflare"
     function                    = "dns"
@@ -57,12 +58,6 @@ managed_repositories = [
     name        = "workstation-devops"
     description = "Personal workstation setup: dotfiles, software installs, and tooling configuration"
     visibility  = "public"
-  },
-  {
-    name        = "cloudflare"
-    description = "Cloudflare DNS and edge configuration (Terraform spoke)"
-    visibility  = "private"
-    topics      = ["terraform", "cloudflare", "dns"]
   },
 
   # ── Skills & tooling ────────────────────────────────────────────────────────
@@ -201,6 +196,16 @@ managed_repositories = [
     name        = "minecraft-modpack-ltm"
     description = "Specter Realms LTM — Persistent biodome world"
     visibility  = "private"
+  },
+]
+
+mccleaton_repositories = [
+  # ── Platform / domain infrastructure ────────────────────────────────────────
+  {
+    name        = "cloudflare"
+    description = "Cloudflare DNS and edge configuration (Terraform spoke)"
+    visibility  = "private"
+    topics      = ["terraform", "cloudflare", "dns"]
   },
 ]
 

@@ -1,18 +1,29 @@
 # Runbook 09 — Cloudflare Terraform repo
 
-**Estimated time:** ~45 minutes (first time)
+**Estimated time:** ~60 minutes (first time, includes new GitHub org setup)
 
 ---
 
 ## 1. Overview
 
 The `cloudflare` repository is a **domain spoke** — it owns Cloudflare DNS (and later tunnel/R2)
-resources. It does **not** live in platform-bootstrap.
+resources. It lives in the **McCleaton** GitHub org — personal platform infrastructure, separate
+from:
+
+| GitHub target | Owns |
+|---|---|
+| `MichaelHeaton` (user) | Existing personal repos; App cannot **create** new repos here |
+| **`McCleaton` (org)** | Platform/domain infra — Cloudflare, future Azure/Cloud spokes |
+| `SpecterRealm` (org) | Minecraft mods and Colony Protocol modpacks only |
+
+McCleaton aligns with HCP (`McCleaton-Bootstrap`) and AWS naming (`mccleaton-tfstate`). To use a
+different org handle, change `mccleaton_org` in `terraform/variables.tf` and matching pipeline
+`github_org` values.
 
 Credential flow:
 
 ```text
-GitHub Actions (OIDC)
+GitHub Actions (OIDC) on McCleaton/cloudflare
   → IAM role shared-cloudflare-dns-github-actions
     → S3 state (shared-cloudflare-dns/*)
     → SM read personal/cloudflare-api-token
@@ -24,75 +35,75 @@ GitHub Actions (OIDC)
 ## 2. Prerequisites
 
 - [08-aws-secrets-manager.md](./08-aws-secrets-manager.md) — `personal/cloudflare-api-token`
-  uploaded and verified (`platform-terraform-dns`, 5 zones)
-- platform-bootstrap GitHub App auth merged and HCP green (runbook 07)
+  uploaded and verified
+- platform-bootstrap GitHub App auth (runbook 07)
+- **McCleaton GitHub org created** and App installed (step 3 below)
+- HCP variable `mccleaton_github_app_installation_id` set
 - `gh` CLI authenticated
 
 ---
 
 ## 3. Steps (in order)
 
-### Step 1 — Merge platform-bootstrap PRs
+### Step 0 — Create the McCleaton GitHub org (one-time)
 
-1. Merge the open **GitHub App + SM docs** PR (`feat/github-app-auth`).
-2. Merge the **cloudflare registration** PR (adds `cloudflare` to `managed_repositories`,
-   pipeline entry, SM IAM on the pipeline role).
-3. Confirm HCP apply is green on `main`.
+1. Go to [github.com/organizations/plan](https://github.com/organizations/plan) → **Create a free
+   organization**
+2. Owner: your personal account (`MichaelHeaton`)
+3. Organization name: **`McCleaton`** (or your chosen handle — update `mccleaton_org` if different)
+4. Complete setup (no paid plan required for private repos)
 
-This creates the empty `MichaelHeaton/cloudflare` GitHub repository and IAM role
-`shared-cloudflare-dns-github-actions`.
+### Step 1 — Install the GitHub App on McCleaton
 
-### Step 2 — Wire GitHub Actions on the cloudflare repo
+Using the existing `platform-bootstrap-terraform` app (runbook 07):
 
-After apply, read the pipeline role ARN from platform-bootstrap outputs (HCP UI or local
-`terraform output pipeline_role_arns`):
+1. App settings → **Install App** → select **McCleaton**
+2. Repository access: **All repositories**
+3. Accept any pending permission requests (org **Administration** write required)
+4. Note the **Installation ID** from:
+   `https://github.com/organizations/McCleaton/settings/installations/<INSTALLATION_ID>`
+
+### Step 2 — HCP workspace variable
+
+In `McCleaton-Bootstrap/platform-bootstrap`, add (terraform category):
+
+| Variable | Value |
+|---|---|
+| `mccleaton_github_app_installation_id` | Installation ID from step 1 |
+
+### Step 3 — Merge platform-bootstrap PR and apply
+
+1. Merge #53 (cloudflare registration) — done.
+2. Merge #54 (McCleaton org module + IAM fix).
+3. Confirm HCP apply is green.
+
+Terraform creates `McCleaton/cloudflare`, updates the OIDC pipeline role (trust:
+`repo:McCleaton/cloudflare:ref:refs/heads/main`), and adds SM read to the state policy.
+
+### Step 4 — Wire GitHub Actions on the cloudflare repo
 
 ```bash
-# From platform-bootstrap clone with AWS/HCP access
 terraform -chdir=terraform output -json pipeline_role_arns | jq -r '."shared-cloudflare-dns"'
+
+gh secret set AWS_ROLE_ARN --repo McCleaton/cloudflare
+gh variable set AWS_REGION --body "us-west-2" --repo McCleaton/cloudflare
+gh variable set TF_STATE_BUCKET_NAME --body "mccleaton-tfstate" --repo McCleaton/cloudflare
+gh variable set AWS_ACCOUNT_ID --body "336090301942" --repo McCleaton/cloudflare
 ```
 
-Set repository configuration on `MichaelHeaton/cloudflare`:
-
-| Type | Name | Value |
-|---|---|---|
-| Secret | `AWS_ROLE_ARN` | ARN from output above |
-| Variable | `AWS_REGION` | `us-west-2` |
-| Variable | `TF_STATE_BUCKET_NAME` | e.g. `mccleaton-tfstate` |
-| Variable | `AWS_ACCOUNT_ID` | `336090301942` |
+### Step 5 — Push the cloudflare repo scaffold
 
 ```bash
-gh secret set AWS_ROLE_ARN --repo MichaelHeaton/cloudflare
-gh variable set AWS_REGION --body "us-west-2" --repo MichaelHeaton/cloudflare
-gh variable set TF_STATE_BUCKET_NAME --body "mccleaton-tfstate" --repo MichaelHeaton/cloudflare
-gh variable set AWS_ACCOUNT_ID --body "336090301942" --repo MichaelHeaton/cloudflare
-```
-
-### Step 3 — Push the cloudflare repo
-
-Clone the (initially empty) repo and push the scaffold from your workstation:
-
-```bash
-git clone git@github.com:MichaelHeaton/cloudflare.git
+git clone git@github.com:McCleaton/cloudflare.git
 cd cloudflare
-# Copy scaffold from your platform-bootstrap PR branch or merge commit
 git add .
 git commit -m "feat: initial Cloudflare DNS Terraform with SM token read"
 git push origin main
 ```
 
-### Step 4 — First plan
+### Step 6 — Add DNS records
 
-Open a PR or push to `main`. The `Terraform Plan` workflow should:
-
-- Assume the OIDC role
-- Read `personal/cloudflare-api-token` from SM
-- Run `terraform plan` with zero or minimal changes (zone data sources only on first run)
-
-### Step 5 — Add DNS records
-
-Add `cloudflare_record` resources (or use `tf-module-dns-record`) per zone. Keep zone-scoped
-changes in PRs with plan output review.
+Add `cloudflare_record` resources (or `tf-module-dns-record`) per zone via PR.
 
 ---
 
@@ -100,7 +111,9 @@ changes in PRs with plan output review.
 
 | Item | Value |
 |---|---|
+| GitHub repo | `McCleaton/cloudflare` |
 | Pipeline key | `shared-cloudflare-dns` |
+| Pipeline `github_org` | `McCleaton` |
 | IAM role | `shared-cloudflare-dns-github-actions` |
 | S3 state key | `shared-cloudflare-dns/terraform.tfstate` |
 | SM secret | `personal/cloudflare-api-token` |
@@ -114,36 +127,19 @@ export AWS_PROFILE=platform-bootstrap
 export AWS_REGION=us-west-2
 export TF_STATE_BUCKET_NAME=mccleaton-tfstate
 
-cd terraform
-terraform init \
-  -backend-config="bucket=$TF_STATE_BUCKET_NAME" \
-  -backend-config="region=$AWS_REGION" \
-  -backend-config="key=shared-cloudflare-dns/terraform.tfstate" \
-  -backend-config="use_lockfile=true" \
-  -backend-config="encrypt=true"
-
-terraform plan
+make init plan
 ```
-
-The Cloudflare token is read from SM at plan time — no `CLOUDFLARE_API_TOKEN` export needed
-when AWS credentials can reach the secret.
 
 ---
 
 ## 6. Optional tokens (when needed)
 
-See runbook 08 — **Tunnel** and **R2** tokens are separate secrets with separate pipeline IAM
-grants. Do not add tunnel/R2 permissions to `platform-terraform-dns`.
-
-| Token | When to add |
-|---|---|
-| Tunnel | Homelab `cloudflared` / `tf-module-cloudflare-tunnel` automation |
-| R2 | Memex file storage buckets on Cloudflare R2 |
+See runbook 08 — **Tunnel** and **R2** tokens are separate secrets. Do not widen the DNS token.
 
 ---
 
 ## 7. Related
 
+- [07 — GitHub App auth](./07-github-app-auth.md)
 - [08 — AWS Secrets Manager](./08-aws-secrets-manager.md)
-- `AGENTS.md` — platform factory vs domain spokes
-- Repo: `MichaelHeaton/cloudflare`
+- Repo: `McCleaton/cloudflare`

@@ -223,8 +223,8 @@ Workstation users use the `platform-bootstrap` AWS profile with broader SM acces
 uploads. Do not grant `platform-bootstrap/*` read to unrelated spoke workspaces.
 
 Spoke pipeline roles (e.g. `shared-cloudflare-dns-github-actions`) receive scoped
-`secretsmanager:GetSecretValue` only on secrets listed in their pipeline entry — see
-[09-cloudflare-terraform-repo.md](./09-cloudflare-terraform-repo.md).
+`secretsmanager:GetSecretValue` via their `*-state-access` IAM policy when listed in the
+pipeline entry — see [09-cloudflare-terraform-repo.md](./09-cloudflare-terraform-repo.md).
 
 ---
 
