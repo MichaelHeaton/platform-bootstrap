@@ -107,6 +107,8 @@ Add these workspace variables (category **terraform**, not env):
 | `mccleaton_github_app_installation_id` | No | Installation ID on McCleaton (platform infra org) |
 | `specterrealm_github_app_installation_id` | No | Installation ID on SpecterRealm (Minecraft/modpacks) |
 | `github_app_pem` | **Yes** | Full PEM file contents. Paste as one line using `\n` for newlines |
+| `tfe_api_token` | **Yes** | HCP org API token — manages spoke workspaces via `tfe` provider |
+| `tfe_vcs_oauth_token_id` | No | OAuth token ID from HCP Organization Settings → VCS Providers (McCleaton GitHub) |
 
 > **Secrets Manager:** also store the PEM in SM as `platform-bootstrap/github-app-pem`
 > (canonical copy). See [08-aws-secrets-manager.md](./08-aws-secrets-manager.md). HCP

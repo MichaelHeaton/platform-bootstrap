@@ -18,7 +18,16 @@ terraform {
       source  = "integrations/github"
       version = "~> 6.12"
     }
+    tfe = {
+      source  = "hashicorp/tfe"
+      version = "~> 0.67"
+    }
   }
+}
+
+provider "tfe" {
+  hostname = var.tfe_hostname
+  token    = var.tfe_api_token
 }
 
 provider "aws" {

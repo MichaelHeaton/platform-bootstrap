@@ -24,6 +24,42 @@ module "oidc_roles" {
   pipelines        = var.pipelines
 }
 
+module "tfe_roles" {
+  source = "./modules/tfe-roles"
+  count  = var.tfe_management_enabled ? 1 : 0
+
+  aws_account_id     = var.aws_account_id
+  tfe_organization   = var.tfe_organization
+  default_github_org = var.github_org
+  pipelines          = var.pipelines
+}
+
+module "tfe_workspaces" {
+  source = "./modules/tfe-workspaces"
+  count  = var.tfe_management_enabled ? 1 : 0
+
+  tfe_organization       = var.tfe_organization
+  tfe_vcs_oauth_token_id = var.tfe_vcs_oauth_token_id
+  default_github_org     = var.github_org
+  aws_region             = var.aws_region
+  pipeline_tfe_role_arns = module.tfe_roles[0].pipeline_tfe_role_arns
+  pipelines              = var.pipelines
+
+  depends_on = [module.tfe_roles]
+}
+
+resource "github_actions_secret" "tfe_ci_token_mccleaton" {
+  for_each = var.tfe_management_enabled ? toset(try(module.tfe_workspaces[0].repos_by_github_org[var.mccleaton_org], [])) : toset([])
+
+  provider = github.mccleaton
+
+  repository  = each.value
+  secret_name = "TF_TOKEN_app_terraform_io"
+  value       = var.tfe_api_token
+
+  depends_on = [module.github_repos_mccleaton, module.tfe_workspaces]
+}
+
 locals {
   service_accounts_by_name = {
     for service in var.service_accounts : service.service_name => service
@@ -139,11 +175,21 @@ resource "aws_iam_policy" "bootstrap_ci_management" {
         Resource = [
           "arn:aws:iam::${var.aws_account_id}:role/*-github-actions",
           "arn:aws:iam::${var.aws_account_id}:role/*-github-actions-deploy",
+          "arn:aws:iam::${var.aws_account_id}:role/*-tfe",
           "arn:aws:iam::${var.aws_account_id}:role/platform-bootstrap-*",
           "arn:aws:iam::${var.aws_account_id}:policy/*-state-access",
+          "arn:aws:iam::${var.aws_account_id}:policy/*-tfe-access",
           "arn:aws:iam::${var.aws_account_id}:policy/*-lambda-boundary",
           "arn:aws:iam::${var.aws_account_id}:policy/*-sam-deploy",
           "arn:aws:iam::${var.aws_account_id}:policy/platform-bootstrap-*",
+        ]
+      },
+      {
+        Sid    = "IAMTerraformCloudOIDCProvider"
+        Effect = "Allow"
+        Action = ["iam:*"]
+        Resource = [
+          "arn:aws:iam::${var.aws_account_id}:oidc-provider/app.terraform.io",
         ]
       },
       {
