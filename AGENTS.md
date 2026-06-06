@@ -20,7 +20,7 @@ Proxmox VMs live here.
 |---|---|---|
 | Ephemeral | OIDC / federated identity — no stored secret | AWS deploy roles for service repos (ADR-002) |
 | Short-lived | GitHub App installation tokens (~1 hour, auto-minted) | Terraform `integrations/github` providers |
-| Stored | AWS Secrets Manager (scoped IAM per consumer) | `platform-bootstrap/github-app-pem`; `personal/cloudflare-api-token` (DNS, 5 zones); workstation: `personal/linear-api-token`, `personal/notion-api-token` — see runbooks 08–09 |
+| Stored | AWS Secrets Manager (scoped IAM per consumer) | `platform-bootstrap/github-app-pem`; `platform-bootstrap/tfe-api-token` (HCP org API); `personal/cloudflare-api-token` (DNS, 5 zones); workstation: `personal/linear-api-token`, `personal/notion-api-token` — see runbooks 08–09 |
 
 Do **not** introduce user PATs with manual expiry for Terraform automation. Use a GitHub App
 (see runbook 07). Store long-lived material in AWS Secrets Manager (see runbook 08).

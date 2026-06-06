@@ -30,6 +30,10 @@ on:
     paths:
       - "terraform/**"
       - "scripts/compliance_check.py"
+      - "docs/**"
+      - "AGENTS.md"
+      - "README.md"
+      - ".github/workflows/*.yml"
 
   workflow_dispatch: {}
 
