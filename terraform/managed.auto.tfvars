@@ -4,7 +4,7 @@
 pipelines = [
   {
     repo_name                   = "cloudflare"
-    github_org                  = "SpecterRealm"
+    github_org                  = "McCleaton" # must match var.mccleaton_org (default)
     environment                 = "shared"
     cloud                       = "cloudflare"
     function                    = "dns"
@@ -199,7 +199,7 @@ managed_repositories = [
   },
 ]
 
-specterrealm_repositories = [
+mccleaton_repositories = [
   # ── Platform / domain infrastructure ────────────────────────────────────────
   {
     name        = "cloudflare"
@@ -207,7 +207,9 @@ specterrealm_repositories = [
     visibility  = "private"
     topics      = ["terraform", "cloudflare", "dns"]
   },
+]
 
+specterrealm_repositories = [
   # ── SpecterRealm — shared library ───────────────────────────────────────────
   {
     name        = "specterrealm-core"

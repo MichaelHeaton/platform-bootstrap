@@ -41,13 +41,24 @@ provider "github" {
   }
 }
 
-# SpecterRealm org — manages Colony Protocol pack repos.
+# SpecterRealm org — Colony Protocol / Minecraft modpack repos.
 provider "github" {
   alias = "specterrealm"
   owner = "SpecterRealm"
   app_auth {
     id              = var.github_app_id
     installation_id = var.specterrealm_github_app_installation_id
+    pem_file        = var.github_app_pem
+  }
+}
+
+# McCleaton org — personal platform and domain infrastructure (Cloudflare, cloud spokes).
+provider "github" {
+  alias = "mccleaton"
+  owner = var.mccleaton_org
+  app_auth {
+    id              = var.github_app_id
+    installation_id = var.mccleaton_github_app_installation_id
     pem_file        = var.github_app_pem
   }
 }
