@@ -23,7 +23,7 @@ resource "terraform_data" "initialize_default_branch" {
   provisioner "local-exec" {
     command = "python3 ${local.extras_script} ensure-default-branch --repo ${jsonencode(each.value.name)} --branch ${jsonencode(each.value.default_branch)} --codeowners ${jsonencode(join(" ", var.codeowners))} --license-spdx-id ${jsonencode(try(each.value.license.spdx_id, ""))} --license-copyright-holder ${jsonencode(try(each.value.license.copyright_holder, ""))}"
     environment = {
-      GITHUB_TOKEN = var.github_token
+      GITHUB_TOKEN = data.github_app_token.local_exec.token
       GITHUB_ORG   = var.github_org
     }
   }
@@ -39,7 +39,7 @@ resource "terraform_data" "ensure_license" {
   provisioner "local-exec" {
     command = "python3 ${local.extras_script} ensure-license --repo ${jsonencode(each.value.repository)} --branch ${jsonencode(each.value.branch)} --license-spdx-id ${jsonencode(each.value.spdx_id)} --license-copyright-holder ${jsonencode(each.value.copyright_holder)}"
     environment = {
-      GITHUB_TOKEN = var.github_token
+      GITHUB_TOKEN = data.github_app_token.local_exec.token
       GITHUB_ORG   = var.github_org
     }
   }
@@ -56,7 +56,7 @@ resource "terraform_data" "label_remove" {
   provisioner "local-exec" {
     command = "python3 ${local.extras_script} delete-label --repo ${each.value.repository} --name ${jsonencode(each.value.name)}"
     environment = {
-      GITHUB_TOKEN = var.github_token
+      GITHUB_TOKEN = data.github_app_token.local_exec.token
       GITHUB_ORG   = var.github_org
     }
   }

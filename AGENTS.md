@@ -1,8 +1,31 @@
-## Cursor Cloud specific instructions
+# AGENTS.md — platform-bootstrap
 
-This is an infrastructure-as-code (Terraform + Python) repository with no application services to run. Development work involves Terraform configuration and a Python compliance script.
+Guidance for AI agents and humans working in this repository.
 
-### Quick reference
+## Purpose
+
+platform-bootstrap is the **platform factory** for personal infrastructure. It provisions
+foundational AWS identity, GitHub repositories, and (planned) HCP Terraform workspaces so
+domain repos (Cloudflare, Azure, homelab, services) can run independently.
+
+It does **not** own domain resources — no Cloudflare DNS records, Azure Entra apps, or
+Proxmox VMs live here.
+
+## Credential strategy
+
+> **Prefer credentials that expire in minutes and renew themselves. Use AWS Secrets Manager
+> only for what still has to be a stored secret overnight.**
+
+| Tier | Pattern | Examples in this repo |
+|---|---|---|
+| Ephemeral | OIDC / federated identity — no stored secret | AWS deploy roles for service repos (ADR-002) |
+| Short-lived | GitHub App installation tokens (~1 hour, auto-minted) | Terraform `integrations/github` providers |
+| Stored | AWS Secrets Manager (scoped IAM per consumer) | App private key PEM (future), Cloudflare/Azure tokens in spoke repos |
+
+Do **not** introduce user PATs with manual expiry for Terraform automation. Use a GitHub App
+(see runbook 07).
+
+## Quick reference
 
 | Task | Command |
 |---|---|
@@ -13,7 +36,7 @@ This is an infrastructure-as-code (Terraform + Python) repository with no applic
 | Auto-format Terraform | `terraform -chdir=terraform fmt -recursive` |
 | All Makefile targets | `make help` |
 
-### Non-obvious caveats
+## Non-obvious caveats
 
 - **GitHub repo creation is managed here — never imperatively**: when asked to create or change a GitHub repository, add or update an entry in `terraform/managed.auto.tfvars`. Use `managed_repositories` for repos under the personal `MichaelHeaton` account; use `specterrealm_repositories` for repos under the `SpecterRealm` org. **Do not** create repositories with `gh repo create`, the GitHub REST API, MCP tool calls (`mcp__github__create_repository`), or any other imperative method. CI/CD will run Terraform plan/apply after the PR is merged. This rule is absolute — no exceptions.
 - **New repo requests have an issue form**: prefer using `.github/ISSUE_TEMPLATE/new-repository.yml` as the source of truth for repository name, visibility, default branch, license, Pages, Discussions, and service-account needs. Public repos should include a supported `license` block when added to the relevant repositories list.
@@ -22,4 +45,9 @@ This is an infrastructure-as-code (Terraform + Python) repository with no applic
 - **No `requirements.txt`**: Python dependencies (`pytest`) are installed directly via `pip3 install pytest`. The compliance script's heavy dependencies (`boto3`, `requests`) are optional and only needed for full (non-structural) checks that require AWS/GitHub credentials.
 - **Terraform >= 1.10.0 is required** (for S3 native state locking). The update script installs Terraform 1.15.4 to `/usr/local/bin/terraform`. To upgrade, change the version in the update script.
 - The `.terraform/` directory created by `terraform init` is gitignored and ephemeral; re-run init after a fresh clone.
-- **Two GitHub providers**: `provider "github"` (default, owner = `MichaelHeaton`) and `provider "github" { alias = "specterrealm" }` (owner = `SpecterRealm`). Each requires its own PAT in CI: `TF_VAR_github_token` and `TF_VAR_specterrealm_github_token` respectively.
+- **Two GitHub providers, one GitHub App**: `provider "github"` (default, owner = `MichaelHeaton`) and `provider "github" { alias = "specterrealm" }` (owner = `SpecterRealm`). Both authenticate via the same GitHub App (`github_app_id` + `github_app_pem`) with **different installation IDs** per account/org. HCP workspace variables (terraform category): `github_app_id`, `github_app_pem`, `github_app_installation_id`, `specterrealm_github_app_installation_id`. Setup: `docs/runbooks/07-github-app-auth.md`.
+- **platform-bootstrap excludes itself from GitHub Terraform management** (ADR-004). It is the foundation — if broken, repair via HCP UI and local Terraform, not via itself.
+
+## Cursor Cloud specific instructions
+
+This is an infrastructure-as-code (Terraform + Python) repository with no application services to run. Development work involves Terraform configuration and a Python compliance script.
