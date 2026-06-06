@@ -87,8 +87,9 @@ In `McCleaton-Bootstrap/platform-bootstrap`, add:
 
 | Variable | Category | Value |
 |---|---|---|
-| `tfe_api_token` | terraform (sensitive) | Org-level HCP API token with workspace admin |
 | `tfe_vcs_oauth_token_id` | terraform | OAuth token ID from HCP → Organization Settings → VCS Providers (McCleaton GitHub) |
+
+Org-level HCP API token: SM secret `platform-bootstrap/tfe-api-token` (see runbook 08) — not an HCP variable.
 
 One-time: connect **McCleaton** GitHub to HCP VCS if not already linked.
 

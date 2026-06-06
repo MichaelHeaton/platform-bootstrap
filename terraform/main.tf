@@ -55,7 +55,7 @@ resource "github_actions_secret" "tfe_ci_token_mccleaton" {
 
   repository  = each.value
   secret_name = "TF_TOKEN_app_terraform_io"
-  value       = var.tfe_api_token
+  value       = local.tfe_api_token
 
   depends_on = [module.github_repos_mccleaton, module.tfe_workspaces]
 }
@@ -198,6 +198,17 @@ resource "aws_iam_policy" "bootstrap_ci_management" {
         Action   = ["sts:GetCallerIdentity"]
         Resource = ["*"]
       },
+      {
+        Sid    = "SecretsManagerPlatformBootstrap"
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret",
+        ]
+        Resource = [
+          "arn:aws:secretsmanager:${var.aws_region}:${var.aws_account_id}:secret:platform-bootstrap/*",
+        ]
+      },
     ]
   })
 
@@ -212,6 +223,48 @@ resource "aws_iam_policy" "bootstrap_ci_management" {
 resource "aws_iam_role_policy_attachment" "bootstrap_ci_management" {
   role       = "platform-bootstrap-github-actions"
   policy_arn = aws_iam_policy.bootstrap_ci_management.arn
+}
+
+# ── HCP dynamic credentials — platform-bootstrap scope secrets ────────────────
+# The platform-bootstrap-tfe role is created manually in HCP (runbook 02). This
+# policy lets HCP plan/apply read canonical secrets (e.g. tfe-api-token) from SM.
+
+resource "aws_iam_policy" "platform_bootstrap_tfe_secrets" {
+  name        = "platform-bootstrap-tfe-secrets-access"
+  description = "Allows platform-bootstrap HCP runs to read platform-bootstrap/* secrets from SM"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "SecretsManagerPlatformBootstrap"
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret",
+        ]
+        Resource = [
+          "arn:aws:secretsmanager:${var.aws_region}:${var.aws_account_id}:secret:platform-bootstrap/*",
+        ]
+      },
+    ]
+  })
+
+  tags = {
+    environment = "shared"
+    cloud       = "aws"
+    function    = "tfe"
+    managed-by  = "terraform"
+  }
+}
+
+data "aws_iam_role" "platform_bootstrap_tfe" {
+  name = "platform-bootstrap-tfe"
+}
+
+resource "aws_iam_role_policy_attachment" "platform_bootstrap_tfe_secrets" {
+  role       = data.aws_iam_role.platform_bootstrap_tfe.name
+  policy_arn = aws_iam_policy.platform_bootstrap_tfe_secrets.arn
 }
 
 # ── Compliance read-only role ──────────────────────────────────────────────────

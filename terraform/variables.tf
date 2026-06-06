@@ -49,12 +49,6 @@ variable "tfe_hostname" {
   default     = "app.terraform.io"
 }
 
-variable "tfe_api_token" {
-  type        = string
-  sensitive   = true
-  description = "Org-level API token for managing HCP workspaces. HCP workspace variable: tfe_api_token."
-}
-
 variable "tfe_vcs_oauth_token_id" {
   type        = string
   description = "OAuth token ID for GitHub VCS in HCP (Organization Settings → VCS Providers). HCP variable: tfe_vcs_oauth_token_id."

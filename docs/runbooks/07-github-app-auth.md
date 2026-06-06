@@ -107,12 +107,14 @@ Add these workspace variables (category **terraform**, not env):
 | `mccleaton_github_app_installation_id` | No | Installation ID on McCleaton (platform infra org) |
 | `specterrealm_github_app_installation_id` | No | Installation ID on SpecterRealm (Minecraft/modpacks) |
 | `github_app_pem` | **Yes** | Full PEM file contents. Paste as one line using `\n` for newlines |
-| `tfe_api_token` | **Yes** | HCP org API token — manages spoke workspaces via `tfe` provider |
 | `tfe_vcs_oauth_token_id` | No | OAuth token ID from HCP Organization Settings → VCS Providers (McCleaton GitHub) |
 
-> **Secrets Manager:** also store the PEM in SM as `platform-bootstrap/github-app-pem`
-> (canonical copy). See [08-aws-secrets-manager.md](./08-aws-secrets-manager.md). HCP
-> `github_app_pem` remains required until Terraform reads SM directly ([#51](https://github.com/MichaelHeaton/platform-bootstrap/issues/51)).
+> **Secrets Manager:** store long-lived secrets in SM (canonical copy). See
+> [08-aws-secrets-manager.md](./08-aws-secrets-manager.md).
+> - `platform-bootstrap/github-app-pem` — HCP `github_app_pem` remains required until
+>   Terraform reads SM directly ([#51](https://github.com/MichaelHeaton/platform-bootstrap/issues/51)).
+> - `platform-bootstrap/tfe-api-token` — org-level HCP API token; Terraform reads SM at
+>   plan time (no HCP variable).
 
 Example PEM format for HCP (single line):
 
@@ -136,7 +138,8 @@ export TF_VAR_github_org="MichaelHeaton"
 # ... other TF_VAR_* from runbook 02
 ```
 
-Run plan/apply from `terraform/` with AWS credentials for the AWS provider.
+Run plan/apply from `terraform/` with AWS credentials (`AWS_PROFILE=platform-bootstrap`) so
+Terraform can read `platform-bootstrap/tfe-api-token` from SM and use the AWS provider.
 
 ---
 

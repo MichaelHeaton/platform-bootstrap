@@ -27,7 +27,7 @@ terraform {
 
 provider "tfe" {
   hostname = var.tfe_hostname
-  token    = var.tfe_api_token
+  token    = local.tfe_api_token
 }
 
 provider "aws" {
