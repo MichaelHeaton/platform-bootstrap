@@ -167,6 +167,13 @@ specterrealm_homelab_repositories = [
     topics            = ["homelab", "grafana", "observability", "terraform"]
     branch_protection = false # free org: private branch protection requires GitHub Team
   },
+  {
+    name              = "homelab-vault"
+    description       = "Homelab Vault: KV mounts, policies, and AppRoles (Terraform)"
+    visibility        = "private"
+    topics            = ["homelab", "vault", "terraform", "secrets"]
+    branch_protection = false
+  },
 ]
 
 specterrealm_repositories = [
