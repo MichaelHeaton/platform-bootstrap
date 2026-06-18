@@ -49,7 +49,9 @@ pipelines = [
     function                    = "substrate"
     allowed_refs                = ["refs/heads/main"]
     secretsmanager_secret_names = ["personal/portainer-api-token", "personal/homelab-alloy-grafana-env"]
-    tfe_workspace_enabled       = false # Portainer TF uses local state on mgmt VLAN; UniFi/Proxmox not in terraform/ yet
+    tfe_workspace_enabled       = true
+    tfe_workspace_name          = "homelab-infra"
+    tfe_execution_mode          = "local" # HCP remote state; plan/apply on mgmt VLAN (Portainer unreachable from cloud)
     terraform_working_directory = "terraform/portainer"
   },
 ]

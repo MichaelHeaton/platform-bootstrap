@@ -23,6 +23,7 @@ resource "tfe_workspace" "spoke" {
   description  = "Domain spoke — managed by platform-bootstrap (${each.key})"
 
   working_directory = each.value.terraform_working_directory
+  execution_mode    = coalesce(each.value.tfe_execution_mode, "remote")
   auto_apply        = false
   queue_all_runs    = false
 
