@@ -112,6 +112,11 @@ Add these workspace variables (category **terraform**, not env):
 | `specterrealm_homelab_github_app_installation_id` | No | Installation ID on specterrealm-homelab (homelab repos) |
 | `tfe_vcs_oauth_token_id` | No | OAuth token ID from HCP Organization Settings → VCS Providers (McCleaton GitHub) |
 
+> **New org + HCP spoke workspace:** the GitHub App creates repos; HCP workspace VCS links use
+> this OAuth token. After installing the App on a new org, **reconnect or extend the VCS provider**
+> so it can read that org's repos. When bootstrapping a spoke, use **two PRs** (repo first, pipeline
+> second) — runbook 09 §8.
+
 > **Secrets Manager:** long-lived secrets are read from SM at plan time — see
 > [08-aws-secrets-manager.md](./08-aws-secrets-manager.md).
 > - `platform-bootstrap/github-app-pem` — GitHub App private key (not an HCP variable)
