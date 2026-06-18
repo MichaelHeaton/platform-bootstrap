@@ -135,6 +135,14 @@ mccleaton_repositories = [
 ]
 
 specterrealm_homelab_repositories = [
+  # ── Homelab — substrate (UniFi, Proxmox, NAS/Portainer) ─────────────────────
+  {
+    name              = "homelab-infra"
+    description       = "Homelab substrate: UniFi, Proxmox, NAS/Portainer, and Synology automation"
+    visibility        = "private"
+    topics            = ["homelab", "terraform", "proxmox", "unifi", "portainer"]
+    branch_protection = false # free org: private branch protection requires GitHub Team
+  },
   # ── Homelab — observability (Phase 2) ───────────────────────────────────────
   {
     name              = "homelab-observability"
