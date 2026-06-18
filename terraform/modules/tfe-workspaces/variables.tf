@@ -32,6 +32,7 @@ variable "pipelines" {
     secretsmanager_secret_names = optional(list(string), [])
     tfe_workspace_enabled       = optional(bool, true)
     tfe_workspace_name          = optional(string)
+    tfe_execution_mode          = optional(string)
     terraform_working_directory = optional(string, "terraform")
   }))
 }
