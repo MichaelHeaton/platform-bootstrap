@@ -167,8 +167,32 @@ organization:McCleaton-Bootstrap:project:*:workspace:cloudflare:run_phase:*
 
 Factory module `tfe-roles` encodes this from PR [#60](https://github.com/MichaelHeaton/platform-bootstrap/pull/60).
 
-To add another spoke: extend `pipelines` + `mccleaton_repositories`, merge platform-bootstrap,
-HCP apply.
+### Adding another spoke (two PRs)
+
+HCP workspace VCS links use the **OAuth** provider (`tfe_vcs_oauth_token_id`), not the GitHub
+App. The spoke repo must **exist and be visible to that OAuth token** when `tfe_workspace` is
+created. Do **not** add the repository and pipeline in the same PR.
+
+**PR 1 — repository only**
+
+1. Add the repo to the correct `*_repositories` list in `managed.auto.tfvars` (e.g.
+   `mccleaton_repositories`, `specterrealm_homelab_repositories`).
+2. Merge → HCP apply on `platform-bootstrap` → verify the repo exists on GitHub.
+3. **New GitHub org:** install the GitHub App, set the matching `*_github_app_installation_id`
+   HCP variable, and grant the HCP VCS OAuth provider access to the org (runbook 07 §4).
+
+**PR 2 — pipeline + workspace**
+
+1. Add the `pipelines` entry (`github_org`, `secretsmanager_secret_names`, optional
+   `tfe_workspace_name`, `terraform_working_directory`, etc.).
+2. Merge → HCP apply → verify workspace, IAM role, and `TF_TOKEN_app_terraform_io` on the spoke.
+
+If both land in one PR, the first apply may error with `Repository doesn't exist or isn't
+accessible` on `module.tfe_workspaces`; a second apply often succeeds once the repo exists.
+Splitting into two PRs avoids that round trip.
+
+Example: `specterrealm-homelab/homelab-observability` — platform-bootstrap PR #68 (combined);
+first apply failed, second apply passed.
 
 **Import (one-time):** if `app.terraform.io` OIDC provider already exists from manual setup:
 
