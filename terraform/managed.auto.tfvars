@@ -30,6 +30,17 @@ pipelines = [
     secretsmanager_secret_names = ["personal/curseforge-api-key"]
     tfe_workspace_enabled       = false
   },
+  {
+    repo_name                   = "homelab-observability"
+    github_org                  = "specterrealm-homelab" # must match var.specterrealm_homelab_org
+    environment                 = "personal"
+    cloud                       = "grafana"
+    function                    = "cloud"
+    allowed_refs                = ["refs/heads/main"]
+    secretsmanager_secret_names = ["personal/grafana-cloud-api-token"]
+    tfe_workspace_name          = "homelab-observability"
+    terraform_working_directory = "terraform"
+  },
 ]
 
 service_accounts = [
@@ -120,6 +131,17 @@ mccleaton_repositories = [
     visibility        = "private"
     topics            = ["terraform", "cloudflare", "dns"]
     branch_protection = false # McCleaton free org: private branch protection requires GitHub Team
+  },
+]
+
+specterrealm_homelab_repositories = [
+  # ── Homelab — observability (Phase 2) ───────────────────────────────────────
+  {
+    name              = "homelab-observability"
+    description       = "Homelab observability: Grafana Cloud, agents, dashboards, and alerting"
+    visibility        = "private"
+    topics            = ["homelab", "grafana", "observability", "terraform"]
+    branch_protection = false # free org: private branch protection requires GitHub Team
   },
 ]
 
