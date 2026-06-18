@@ -57,6 +57,19 @@ pipelines = [
     tfe_execution_mode          = "local" # HCP remote state; plan/apply on mgmt VLAN (Portainer unreachable from cloud)
     terraform_working_directory = "terraform/portainer"
   },
+  {
+    repo_name                   = "homelab-vault"
+    github_org                  = "specterrealm-homelab" # must match var.specterrealm_homelab_org
+    environment                 = "personal"
+    cloud                       = "homelab"
+    function                    = "vault"
+    allowed_refs                = ["refs/heads/main"]
+    secretsmanager_secret_names = ["personal/vault-terraform-token"]
+    tfe_workspace_enabled       = true
+    tfe_workspace_name          = "homelab-vault"
+    tfe_execution_mode          = "local" # Vault API on NAS01 mgmt VLAN only
+    terraform_working_directory = "terraform"
+  },
 ]
 
 service_accounts = [
