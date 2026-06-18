@@ -48,6 +48,17 @@ module "tfe_workspaces" {
   depends_on = [module.tfe_roles]
 }
 
+# ── Homelab Vault → AWS SM sync (NAS01 sidecar) ───────────────────────────────
+# IAM user scoped to an SM allowlist. Access keys are created manually and stored
+# on NAS01 — not in Terraform state. See homelab-infra/docs/vault-aws-sm-sync.md.
+
+module "homelab_vault_sync" {
+  source = "./modules/homelab-vault-sync"
+
+  aws_account_id                = var.aws_account_id
+  secretsmanager_secret_names   = var.homelab_vault_sync_secret_names
+}
+
 resource "github_actions_secret" "tfe_ci_token_mccleaton" {
   for_each = var.tfe_management_enabled ? toset(try(module.tfe_workspaces[0].repos_by_github_org[var.mccleaton_org], [])) : toset([])
 

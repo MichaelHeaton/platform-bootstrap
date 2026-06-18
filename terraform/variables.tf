@@ -77,6 +77,15 @@ variable "service_accounts" {
   default     = []
 }
 
+variable "homelab_vault_sync_secret_names" {
+  type        = list(string)
+  description = "SM secrets the homelab Vault sync IAM user may read/update. Expand only with a reviewed mapping in homelab-infra."
+  default = [
+    "personal/portainer-api-token",
+    "personal/homelab-alloy-grafana-env",
+  ]
+}
+
 variable "github_app_id" {
   type        = string
   description = "GitHub App ID for Terraform GitHub provider auth. HCP workspace variable: github_app_id."

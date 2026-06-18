@@ -57,3 +57,18 @@ output "service_repo_names" {
   description = "Map of service name to GitHub repository name (may differ from service_name)."
   value       = { for s in var.service_accounts : s.service_name => s.repo_name }
 }
+
+output "homelab_vault_sync_iam_user_name" {
+  description = "IAM user for NAS01 vault-aws-sync. Create access keys manually after apply."
+  value       = module.homelab_vault_sync.iam_user_name
+}
+
+output "homelab_vault_sync_iam_user_arn" {
+  description = "ARN of the vault-aws-sync IAM user."
+  value       = module.homelab_vault_sync.iam_user_arn
+}
+
+output "homelab_vault_sync_sm_secret_names" {
+  description = "SM secrets in the Vault sync allowlist."
+  value       = module.homelab_vault_sync.secretsmanager_secret_names
+}
