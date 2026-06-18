@@ -23,7 +23,6 @@ resource "tfe_workspace" "spoke" {
   description  = "Domain spoke — managed by platform-bootstrap (${each.key})"
 
   working_directory = each.value.terraform_working_directory
-  execution_mode    = coalesce(each.value.tfe_execution_mode, "remote")
   auto_apply        = false
   queue_all_runs    = false
 
@@ -37,6 +36,13 @@ resource "tfe_workspace" "spoke" {
     "/${each.value.terraform_working_directory}/**/*",
     "/.github/workflows/terraform-*.yml",
   ]
+}
+
+resource "tfe_workspace_settings" "spoke" {
+  for_each = local.pipelines_map
+
+  workspace_id   = tfe_workspace.spoke[each.key].id
+  execution_mode = coalesce(each.value.tfe_execution_mode, "remote")
 }
 
 resource "tfe_variable" "aws_provider_auth" {
