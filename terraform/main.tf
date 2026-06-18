@@ -55,8 +55,8 @@ module "tfe_workspaces" {
 module "homelab_vault_sync" {
   source = "./modules/homelab-vault-sync"
 
-  aws_account_id                = var.aws_account_id
-  secretsmanager_secret_names   = var.homelab_vault_sync_secret_names
+  aws_account_id              = var.aws_account_id
+  secretsmanager_secret_names = var.homelab_vault_sync_secret_names
 }
 
 resource "github_actions_secret" "tfe_ci_token_mccleaton" {
