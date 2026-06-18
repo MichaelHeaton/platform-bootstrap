@@ -41,6 +41,9 @@ pipelines = [
     tfe_workspace_name          = "homelab-observability"
     terraform_working_directory = "terraform"
   },
+  # homelab-infra repo: one HCP workspace per terraform/<stack>/ root (homelab-<stack>).
+  # Add separate pipelines entries for proxmox, unifi, etc. — same repo, scoped working_directory,
+  # isolated state, and smaller blast radius. Portainer is first (local execution on mgmt VLAN).
   {
     repo_name                   = "homelab-infra"
     github_org                  = "specterrealm-homelab" # must match var.specterrealm_homelab_org
@@ -50,7 +53,7 @@ pipelines = [
     allowed_refs                = ["refs/heads/main"]
     secretsmanager_secret_names = ["personal/portainer-api-token", "personal/homelab-alloy-grafana-env"]
     tfe_workspace_enabled       = true
-    tfe_workspace_name          = "homelab-infra"
+    tfe_workspace_name          = "homelab-portainer"
     tfe_execution_mode          = "local" # HCP remote state; plan/apply on mgmt VLAN (Portainer unreachable from cloud)
     terraform_working_directory = "terraform/portainer"
   },
