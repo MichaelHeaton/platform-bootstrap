@@ -52,11 +52,17 @@ module "tfe_workspaces" {
 # IAM user scoped to an SM allowlist. Access keys are created manually and stored
 # on NAS01 — not in Terraform state. See homelab-infra/docs/vault-aws-sm-sync.md.
 
+locals {
+  homelab_vault_sync_user_name   = "homelab-vault-aws-sync"
+  homelab_vault_sync_policy_name = "${local.homelab_vault_sync_user_name}-sm-access"
+}
+
 module "homelab_vault_sync" {
   source = "./modules/homelab-vault-sync"
 
   aws_account_id              = var.aws_account_id
   secretsmanager_secret_names = var.homelab_vault_sync_secret_names
+  user_name                   = local.homelab_vault_sync_user_name
 }
 
 resource "github_actions_secret" "tfe_ci_token_mccleaton" {
@@ -205,6 +211,8 @@ resource "aws_iam_policy" "bootstrap_ci_management" {
           "arn:aws:iam::${var.aws_account_id}:policy/*-lambda-boundary",
           "arn:aws:iam::${var.aws_account_id}:policy/*-sam-deploy",
           "arn:aws:iam::${var.aws_account_id}:policy/platform-bootstrap-*",
+          "arn:aws:iam::${var.aws_account_id}:user/${local.homelab_vault_sync_user_name}",
+          "arn:aws:iam::${var.aws_account_id}:policy/${local.homelab_vault_sync_policy_name}",
         ]
       },
       {
@@ -288,6 +296,38 @@ data "aws_iam_role" "platform_bootstrap_tfe" {
 resource "aws_iam_role_policy_attachment" "platform_bootstrap_tfe_secrets" {
   role       = data.aws_iam_role.platform_bootstrap_tfe.name
   policy_arn = aws_iam_policy.platform_bootstrap_tfe_secrets.arn
+}
+
+resource "aws_iam_policy" "platform_bootstrap_tfe_homelab_vault_sync" {
+  name        = "platform-bootstrap-tfe-homelab-vault-sync"
+  description = "Allows platform-bootstrap HCP runs to manage homelab Vault sync IAM user and SM policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "HomelabVaultSyncIAMUserAndPolicy"
+        Effect = "Allow"
+        Action = ["iam:*"]
+        Resource = [
+          "arn:aws:iam::${var.aws_account_id}:user/${local.homelab_vault_sync_user_name}",
+          "arn:aws:iam::${var.aws_account_id}:policy/${local.homelab_vault_sync_policy_name}",
+        ]
+      },
+    ]
+  })
+
+  tags = {
+    environment = "shared"
+    cloud       = "aws"
+    function    = "tfe"
+    managed-by  = "terraform"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "platform_bootstrap_tfe_homelab_vault_sync" {
+  role       = data.aws_iam_role.platform_bootstrap_tfe.name
+  policy_arn = aws_iam_policy.platform_bootstrap_tfe_homelab_vault_sync.arn
 }
 
 # ── Compliance read-only role ──────────────────────────────────────────────────
