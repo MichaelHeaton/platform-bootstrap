@@ -216,6 +216,17 @@ resource "aws_iam_policy" "bootstrap_ci_management" {
         ]
       },
       {
+        Sid      = "CreateHomelabVaultSyncPolicy"
+        Effect   = "Allow"
+        Action   = ["iam:CreatePolicy"]
+        Resource = ["*"]
+        Condition = {
+          StringEquals = {
+            "iam:PolicyName" = local.homelab_vault_sync_policy_name
+          }
+        }
+      },
+      {
         Sid    = "IAMTerraformCloudOIDCProvider"
         Effect = "Allow"
         Action = ["iam:*"]
@@ -313,6 +324,17 @@ resource "aws_iam_policy" "platform_bootstrap_tfe_homelab_vault_sync" {
           "arn:aws:iam::${var.aws_account_id}:user/${local.homelab_vault_sync_user_name}",
           "arn:aws:iam::${var.aws_account_id}:policy/${local.homelab_vault_sync_policy_name}",
         ]
+      },
+      {
+        Sid      = "CreateHomelabVaultSyncPolicy"
+        Effect   = "Allow"
+        Action   = ["iam:CreatePolicy"]
+        Resource = ["*"]
+        Condition = {
+          StringEquals = {
+            "iam:PolicyName" = local.homelab_vault_sync_policy_name
+          }
+        }
       },
     ]
   })
