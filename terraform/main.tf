@@ -60,6 +60,16 @@ resource "github_actions_secret" "tfe_ci_token_mccleaton" {
   depends_on = [module.github_repos_mccleaton, module.tfe_workspaces]
 }
 
+resource "github_actions_secret" "tfe_ci_token_default_org" {
+  for_each = var.tfe_management_enabled ? toset(try(module.tfe_workspaces[0].repos_by_github_org[var.github_org], [])) : toset([])
+
+  repository  = each.value
+  secret_name = "TF_TOKEN_app_terraform_io"
+  value       = local.tfe_api_token
+
+  depends_on = [module.github_repos, module.tfe_workspaces]
+}
+
 locals {
   service_accounts_by_name = {
     for service in var.service_accounts : service.service_name => service
