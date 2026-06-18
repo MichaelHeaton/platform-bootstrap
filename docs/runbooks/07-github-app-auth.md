@@ -83,10 +83,13 @@ Create the org first — see [09-cloudflare-terraform-repo.md](./09-cloudflare-t
 3. Note the **Installation ID** from:
    `https://github.com/organizations/SpecterRealm/settings/installations/<INSTALLATION_ID>`
 
-### specterrealm-homelab (organization) — optional, future
+### specterrealm-homelab (organization) — homelab repos
 
-Install the App here when homelab repos are added to Terraform. Installation ID `138340201`
-(documented for later; no HCP variable required until the provider is wired in code).
+1. Install App → **specterrealm-homelab** org
+2. Repository access: **All repositories**
+3. Note the **Installation ID** from:
+   `https://github.com/organizations/specterrealm-homelab/settings/installations/<INSTALLATION_ID>`
+   (documented install ID: `138340201` at time of wiring)
 
 ---
 
@@ -106,6 +109,7 @@ Add these workspace variables (category **terraform**, not env):
 | `github_app_installation_id` | No | Installation ID on MichaelHeaton |
 | `mccleaton_github_app_installation_id` | No | Installation ID on McCleaton (platform infra org) |
 | `specterrealm_github_app_installation_id` | No | Installation ID on SpecterRealm (Minecraft/modpacks) |
+| `specterrealm_homelab_github_app_installation_id` | No | Installation ID on specterrealm-homelab (homelab repos) |
 | `tfe_vcs_oauth_token_id` | No | OAuth token ID from HCP Organization Settings → VCS Providers (McCleaton GitHub) |
 
 > **Secrets Manager:** long-lived secrets are read from SM at plan time — see

@@ -32,6 +32,7 @@ pipelines = [
   },
   {
     repo_name                   = "homelab-observability"
+    github_org                  = "specterrealm-homelab" # must match var.specterrealm_homelab_org
     environment                 = "personal"
     cloud                       = "grafana"
     function                    = "cloud"
@@ -104,14 +105,6 @@ managed_repositories = [
     }
   },
 
-  # ── Homelab — observability (Phase 2) ───────────────────────────────────────
-  {
-    name        = "homelab-observability"
-    description = "Homelab observability: Grafana Cloud, agents, dashboards, and alerting"
-    visibility  = "private"
-    topics      = ["homelab", "grafana", "observability", "terraform"]
-  },
-
   # ── Esports ──────────────────────────────────────────────────────────────────
   {
     name        = "minecraft-modpack-family"
@@ -138,6 +131,17 @@ mccleaton_repositories = [
     visibility        = "private"
     topics            = ["terraform", "cloudflare", "dns"]
     branch_protection = false # McCleaton free org: private branch protection requires GitHub Team
+  },
+]
+
+specterrealm_homelab_repositories = [
+  # ── Homelab — observability (Phase 2) ───────────────────────────────────────
+  {
+    name              = "homelab-observability"
+    description       = "Homelab observability: Grafana Cloud, agents, dashboards, and alerting"
+    visibility        = "private"
+    topics            = ["homelab", "grafana", "observability", "terraform"]
+    branch_protection = false # free org: private branch protection requires GitHub Team
   },
 ]
 

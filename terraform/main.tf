@@ -60,14 +60,16 @@ resource "github_actions_secret" "tfe_ci_token_mccleaton" {
   depends_on = [module.github_repos_mccleaton, module.tfe_workspaces]
 }
 
-resource "github_actions_secret" "tfe_ci_token_default_org" {
-  for_each = var.tfe_management_enabled ? toset(try(module.tfe_workspaces[0].repos_by_github_org[var.github_org], [])) : toset([])
+resource "github_actions_secret" "tfe_ci_token_specterrealm_homelab" {
+  for_each = var.tfe_management_enabled ? toset(try(module.tfe_workspaces[0].repos_by_github_org[var.specterrealm_homelab_org], [])) : toset([])
+
+  provider = github.specterrealm_homelab
 
   repository  = each.value
   secret_name = "TF_TOKEN_app_terraform_io"
   value       = local.tfe_api_token
 
-  depends_on = [module.github_repos, module.tfe_workspaces]
+  depends_on = [module.github_repos_specterrealm_homelab, module.tfe_workspaces]
 }
 
 locals {
@@ -416,6 +418,23 @@ module "github_repos_mccleaton" {
   github_app_id              = var.github_app_id
   github_app_pem             = local.github_app_pem
   github_app_installation_id = var.mccleaton_github_app_installation_id
+}
+
+# ── specterrealm-homelab org repositories (homelab / in-house servers) ─────────
+
+module "github_repos_specterrealm_homelab" {
+  source = "./modules/github-repos"
+
+  providers = {
+    github = github.specterrealm_homelab
+  }
+
+  repositories               = var.specterrealm_homelab_repositories
+  codeowners                 = ["@MichaelHeaton"]
+  github_org                 = var.specterrealm_homelab_org
+  github_app_id              = var.github_app_id
+  github_app_pem             = local.github_app_pem
+  github_app_installation_id = var.specterrealm_homelab_github_app_installation_id
 }
 
 

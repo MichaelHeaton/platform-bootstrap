@@ -148,6 +148,63 @@ variable "mccleaton_repositories" {
   default     = []
 }
 
+# ── specterrealm-homelab org (homelab / in-house servers) ─────────────────────
+
+variable "specterrealm_homelab_org" {
+  type        = string
+  description = "GitHub org for homelab infrastructure and service repos (Proxmox, Grafana, streaming, etc.)."
+  default     = "specterrealm-homelab"
+}
+
+variable "specterrealm_homelab_github_app_installation_id" {
+  type        = string
+  description = "GitHub App installation ID on specterrealm_homelab_org. HCP workspace variable: specterrealm_homelab_github_app_installation_id."
+}
+
+variable "specterrealm_homelab_repositories" {
+  type = list(object({
+    name           = string
+    description    = string
+    visibility     = string
+    topics         = optional(list(string), [])
+    default_branch = optional(string, "main")
+
+    has_issues      = optional(bool, true)
+    has_wiki        = optional(bool, false)
+    has_projects    = optional(bool, false)
+    has_discussions = optional(bool, false)
+
+    labels = optional(list(object({
+      name        = string
+      color       = string
+      description = optional(string, "")
+    })), [])
+
+    labels_remove = optional(list(string), [])
+
+    license = optional(object({
+      spdx_id          = string
+      copyright_holder = optional(string, "Michael Heaton")
+    }))
+
+    pages = optional(object({
+      build_type = optional(string, "legacy")
+      source = optional(object({
+        branch = string
+        path   = optional(string, "/")
+      }))
+      cname          = optional(string)
+      public         = optional(bool)
+      https_enforced = optional(bool)
+    }))
+
+    main_branch_ruleset = optional(bool, false)
+    branch_protection   = optional(bool, true)
+  }))
+  description = "GitHub repositories under specterrealm_homelab_org — homelab ops, not Minecraft modpack content."
+  default     = []
+}
+
 variable "managed_repositories" {
   type = list(object({
     name           = string
