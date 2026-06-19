@@ -71,6 +71,7 @@ pipelines = [
     terraform_working_directory = "terraform/nas01"
   },
   {
+    repo_name                   = "homelab-vault"
     github_org                  = "specterrealm-homelab" # must match var.specterrealm_homelab_org
     environment                 = "personal"
     cloud                       = "homelab"
