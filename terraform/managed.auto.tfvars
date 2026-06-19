@@ -58,6 +58,19 @@ pipelines = [
     terraform_working_directory = "terraform/portainer"
   },
   {
+    repo_name                   = "homelab-infra"
+    github_org                  = "specterrealm-homelab" # must match var.specterrealm_homelab_org
+    environment                 = "personal"
+    cloud                       = "homelab"
+    function                    = "nas01"
+    allowed_refs                = ["refs/heads/main"]
+    secretsmanager_secret_names = [] # DSM creds from Vault (TF_VAR_synology_*), not SM
+    tfe_workspace_enabled       = true
+    tfe_workspace_name          = "homelab-nas01"
+    tfe_execution_mode          = "local" # HCP remote state; plan/apply on mgmt VLAN (DSM API unreachable from cloud)
+    terraform_working_directory = "terraform/nas01"
+  },
+  {
     repo_name                   = "homelab-vault"
     github_org                  = "specterrealm-homelab" # must match var.specterrealm_homelab_org
     environment                 = "personal"
