@@ -200,6 +200,13 @@ specterrealm_homelab_repositories = [
     topics            = ["homelab", "vault", "terraform", "secrets"]
     branch_protection = false
   },
+  {
+    name              = "homelab-identity"
+    description       = "Homelab identity: Authentik SSO configuration — OAuth sources, applications, providers (Terraform)"
+    visibility        = "private"
+    topics            = ["homelab", "authentik", "sso", "oidc", "terraform"]
+    branch_protection = false
+  },
 ]
 
 specterrealm_repositories = [
