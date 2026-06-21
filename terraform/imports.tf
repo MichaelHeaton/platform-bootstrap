@@ -5,8 +5,8 @@ import {
   id = "minecraft-modpack-cp-verdant"
 }
 
-# homelab-azure and homelab-identity HCP workspaces were created manually before
-# platform-bootstrap managed them. These imports adopt them into TF state.
+# homelab-azure, homelab-identity, and homelab-proxmox HCP workspaces were created
+# before platform-bootstrap managed them. These imports adopt them into TF state.
 import {
   to = module.tfe_workspaces[0].tfe_workspace.spoke["personal-homelab-azure"]
   id = "McCleaton-Bootstrap/homelab-azure"
@@ -15,4 +15,9 @@ import {
 import {
   to = module.tfe_workspaces[0].tfe_workspace.spoke["personal-homelab-identity"]
   id = "McCleaton-Bootstrap/homelab-identity"
+}
+
+import {
+  to = module.tfe_workspaces[0].tfe_workspace.spoke["personal-homelab-proxmox"]
+  id = "McCleaton-Bootstrap/homelab-proxmox"
 }

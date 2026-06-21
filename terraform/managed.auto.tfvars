@@ -84,6 +84,19 @@ pipelines = [
     terraform_working_directory = "terraform"
   },
   {
+    repo_name                   = "homelab-infra"
+    github_org                  = "specterrealm-homelab" # must match var.specterrealm_homelab_org
+    environment                 = "personal"
+    cloud                       = "homelab"
+    function                    = "proxmox"
+    allowed_refs                = ["refs/heads/main"]
+    secretsmanager_secret_names = [] # Proxmox API token from Vault (homelab/proxmox/api-token)
+    tfe_workspace_enabled       = true
+    tfe_workspace_name          = "homelab-proxmox"
+    tfe_execution_mode          = "local" # Proxmox API on mgmt VLAN only; Vault also unreachable from cloud
+    terraform_working_directory = "terraform/proxmox"
+  },
+  {
     repo_name             = "homelab-infra"
     github_org            = "specterrealm-homelab" # must match var.specterrealm_homelab_org
     environment           = "personal"
