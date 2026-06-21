@@ -84,14 +84,14 @@ pipelines = [
     terraform_working_directory = "terraform"
   },
   {
-    repo_name                   = "homelab-infra"
-    github_org                  = "specterrealm-homelab" # must match var.specterrealm_homelab_org
-    environment                 = "personal"
-    cloud                       = "homelab"
-    function                    = "azure"
-    allowed_refs                = ["refs/heads/main"]
-    tfe_workspace_enabled       = true
-    tfe_workspace_name          = "homelab-azure"
+    repo_name             = "homelab-infra"
+    github_org            = "specterrealm-homelab" # must match var.specterrealm_homelab_org
+    environment           = "personal"
+    cloud                 = "homelab"
+    function              = "azure"
+    allowed_refs          = ["refs/heads/main"]
+    tfe_workspace_enabled = true
+    tfe_workspace_name    = "homelab-azure"
     # No tfe_execution_mode — default remote; Azure AD API is publicly reachable from HCP cloud runners
     terraform_working_directory = "terraform/azure"
   },
