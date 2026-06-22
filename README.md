@@ -31,6 +31,15 @@ Complete these in order. Each runbook assumes the previous one is done.
 8. [08 — AWS Secrets Manager](docs/runbooks/08-aws-secrets-manager.md)
 9. [09 — Cloudflare Terraform Repo](docs/runbooks/09-cloudflare-terraform-repo.md)
 
+## Homelab (`specterrealm-homelab`)
+
+Homelab operational repos and HCP workspaces are factory-managed from this repository.
+Roadmap and audit backlog: **homelab-infra** [docs/iac-modernization.md](https://github.com/specterrealm-homelab/homelab-infra/blob/main/docs/iac-modernization.md)
+(GitHub issues #90–#117).
+
+- **Today:** `platform-bootstrap` + `specterrealm-homelab/homelab-infra` (+ separate `homelab-vault`, `homelab-identity`, `homelab-observability` spokes)
+- **Target:** `homelab-platform` + `homelab-infra` (spokes merge into `terraform/<stack>/`; workspace names unchanged)
+
 ## How to Add a New Project
 
 1. Add the repo to `managed_repositories` in `terraform/managed.auto.tfvars` if it is a new
