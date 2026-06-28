@@ -31,7 +31,9 @@ pipelines = [
     tfe_workspace_enabled       = false
   },
   {
-    repo_name                   = "homelab-observability"
+    # Consolidated into homelab-infra/terraform/observability (#102 Wave C). Workspace name
+    # unchanged → VCS re-point. Remote execution (Grafana Cloud API). homelab-observability archived.
+    repo_name                   = "homelab-infra"
     github_org                  = "specterrealm-homelab" # must match var.specterrealm_homelab_org
     environment                 = "personal"
     cloud                       = "grafana"
@@ -39,7 +41,7 @@ pipelines = [
     allowed_refs                = ["refs/heads/main"]
     secretsmanager_secret_names = ["personal/grafana-cloud-api-token"]
     tfe_workspace_name          = "homelab-observability"
-    terraform_working_directory = "terraform"
+    terraform_working_directory = "terraform/observability"
   },
   # homelab-infra repo: one HCP workspace per terraform/<stack>/ root (homelab-<stack>).
   # Add separate pipelines entries for proxmox, unifi, etc. — same repo, scoped working_directory,
