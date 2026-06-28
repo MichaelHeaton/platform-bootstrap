@@ -3,13 +3,17 @@
 
 pipelines = [
   {
-    repo_name                   = "cloudflare"
-    github_org                  = "McCleaton" # must match var.mccleaton_org (default)
+    # Consolidated into homelab-infra/terraform/cloudflare (#102 Wave D). Workspace name must stay
+    # "cloudflare" (not homelab-infra). Remote execution (Cloudflare public API).
+    repo_name                   = "homelab-infra"
+    github_org                  = "specterrealm-homelab" # must match var.specterrealm_homelab_org
     environment                 = "shared"
     cloud                       = "cloudflare"
     function                    = "dns"
     allowed_refs                = ["refs/heads/main"]
     secretsmanager_secret_names = ["personal/cloudflare-api-token"]
+    tfe_workspace_name          = "cloudflare"
+    terraform_working_directory = "terraform/cloudflare"
   },
   {
     repo_name                   = "minecraft-modpack-cp-verdant"
