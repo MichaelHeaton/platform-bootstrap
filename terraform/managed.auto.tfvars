@@ -71,7 +71,9 @@ pipelines = [
     terraform_working_directory = "terraform/nas01"
   },
   {
-    repo_name                   = "homelab-vault"
+    # Consolidated into homelab-infra/terraform/vault (#102 Wave A). Workspace name
+    # unchanged → VCS re-point, not a state migration. homelab-vault repo to be archived.
+    repo_name                   = "homelab-infra"
     github_org                  = "specterrealm-homelab" # must match var.specterrealm_homelab_org
     environment                 = "personal"
     cloud                       = "homelab"
@@ -81,7 +83,7 @@ pipelines = [
     tfe_workspace_enabled       = true
     tfe_workspace_name          = "homelab-vault"
     tfe_execution_mode          = "local" # Vault API on NAS01 mgmt VLAN only
-    terraform_working_directory = "terraform"
+    terraform_working_directory = "terraform/vault"
   },
   {
     repo_name                   = "homelab-infra"
