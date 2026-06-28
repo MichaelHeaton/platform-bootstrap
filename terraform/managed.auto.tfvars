@@ -111,7 +111,9 @@ pipelines = [
     terraform_working_directory = "terraform/azure"
   },
   {
-    repo_name                   = "homelab-identity"
+    # Consolidated into homelab-infra/terraform/identity (#102 Wave B). Workspace name
+    # unchanged → VCS re-point, not a state migration. homelab-identity repo to be archived.
+    repo_name                   = "homelab-infra"
     github_org                  = "specterrealm-homelab" # must match var.specterrealm_homelab_org
     environment                 = "personal"
     cloud                       = "homelab"
@@ -120,7 +122,7 @@ pipelines = [
     tfe_workspace_enabled       = true
     tfe_workspace_name          = "homelab-identity"
     tfe_execution_mode          = "local" # Authentik API on NAS01 mgmt VLAN only
-    terraform_working_directory = "terraform"
+    terraform_working_directory = "terraform/identity"
   },
 ]
 
