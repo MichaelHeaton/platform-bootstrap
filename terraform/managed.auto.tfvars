@@ -213,14 +213,9 @@ managed_repositories = [
 ]
 
 mccleaton_repositories = [
-  # ── Platform / domain infrastructure ────────────────────────────────────────
-  {
-    name              = "cloudflare"
-    description       = "Cloudflare DNS and edge configuration (Terraform spoke)"
-    visibility        = "private"
-    topics            = ["terraform", "cloudflare", "dns"]
-    branch_protection = false # McCleaton free org: private branch protection requires GitHub Team
-  },
+  # cloudflare consolidated into homelab-infra/terraform/cloudflare (#102 Wave D) and archived.
+  # Entry removed after `terraform state rm module.github_repos_mccleaton...` (repo had
+  # prevent_destroy, so it was state-removed before this entry was dropped).
 ]
 
 specterrealm_homelab_repositories = [
@@ -232,28 +227,10 @@ specterrealm_homelab_repositories = [
     topics            = ["homelab", "terraform", "proxmox", "unifi", "portainer"]
     branch_protection = false # free org: private branch protection requires GitHub Team
   },
-  # ── Homelab — observability (Phase 2) ───────────────────────────────────────
-  {
-    name              = "homelab-observability"
-    description       = "Homelab observability: Grafana Cloud, agents, dashboards, and alerting"
-    visibility        = "private"
-    topics            = ["homelab", "grafana", "observability", "terraform"]
-    branch_protection = false # free org: private branch protection requires GitHub Team
-  },
-  {
-    name              = "homelab-vault"
-    description       = "Homelab Vault: KV mounts, policies, and AppRoles (Terraform)"
-    visibility        = "private"
-    topics            = ["homelab", "vault", "terraform", "secrets"]
-    branch_protection = false
-  },
-  {
-    name              = "homelab-identity"
-    description       = "Homelab identity: Authentik SSO configuration — OAuth sources, applications, providers (Terraform)"
-    visibility        = "private"
-    topics            = ["homelab", "authentik", "sso", "oidc", "terraform"]
-    branch_protection = false
-  },
+  # homelab-observability, homelab-vault, homelab-identity consolidated into
+  # homelab-infra/terraform/{observability,vault,identity} (#102 Waves A–C) and archived.
+  # Entries removed after `terraform state rm module.github_repos_specterrealm_homelab...`
+  # (repos had prevent_destroy, so they were state-removed before these entries were dropped).
 ]
 
 specterrealm_repositories = [
