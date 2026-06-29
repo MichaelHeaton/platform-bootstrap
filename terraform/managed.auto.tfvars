@@ -105,6 +105,19 @@ pipelines = [
     terraform_working_directory = "terraform/proxmox"
   },
   {
+    repo_name                   = "homelab-infra"
+    github_org                  = "specterrealm-homelab" # must match var.specterrealm_homelab_org
+    environment                 = "personal"
+    cloud                       = "homelab"
+    function                    = "unifi"
+    allowed_refs                = ["refs/heads/main"]
+    secretsmanager_secret_names = [] # UDM API key from Vault (homelab/unifi/controller-credentials)
+    tfe_workspace_enabled       = true
+    tfe_workspace_name          = "homelab-unifi"
+    tfe_execution_mode          = "local" # UDM API on mgmt VLAN only
+    terraform_working_directory = "terraform/unifi"
+  },
+  {
     repo_name             = "homelab-infra"
     github_org            = "specterrealm-homelab" # must match var.specterrealm_homelab_org
     environment           = "personal"
