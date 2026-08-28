@@ -32,9 +32,10 @@ resource "tfe_workspace" "spoke" {
     ingress_submodules = false
   }
 
+  # CI plan/apply is GitHub Actions (self-hosted on VLAN 1), not HCP VCS-triggered runs.
+  # Do not add workflow path globs here — they queue spurious remote/local runs on doc-only PRs.
   trigger_patterns = [
     "/${each.value.terraform_working_directory}/**/*",
-    "/.github/workflows/terraform-*.yml",
   ]
 }
 
