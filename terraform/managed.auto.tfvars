@@ -6,13 +6,13 @@ pipelines = [
     # Consolidated into homelab-infra/terraform/cloudflare (#102 Wave D). Workspace name must stay
     # "cloudflare" (not homelab-infra). Remote execution (Cloudflare public API).
     repo_name                   = "homelab-infra"
-    github_org                  = "specterrealm-homelab" # must match var.specterrealm_homelab_org
     environment                 = "shared"
     cloud                       = "cloudflare"
     function                    = "dns"
     allowed_refs                = ["refs/heads/main"]
     secretsmanager_secret_names = ["personal/cloudflare-api-token"]
     tfe_workspace_name          = "cloudflare"
+    tfe_execution_mode          = "local" # Cloudflare API is public; pg state backend is VLAN 1 only (#259)
     terraform_working_directory = "terraform/cloudflare"
   },
   {
@@ -36,15 +36,15 @@ pipelines = [
   },
   {
     # Consolidated into homelab-infra/terraform/observability (#102 Wave C). Workspace name
-    # unchanged → VCS re-point. Remote execution (Grafana Cloud API). homelab-observability archived.
+    # unchanged → VCS re-point. Local execution: pg state + Vault creds are VLAN 1 only (#258).
     repo_name                   = "homelab-infra"
-    github_org                  = "specterrealm-homelab" # must match var.specterrealm_homelab_org
     environment                 = "personal"
     cloud                       = "grafana"
     function                    = "cloud"
     allowed_refs                = ["refs/heads/main"]
     secretsmanager_secret_names = ["personal/grafana-cloud-api-token"]
     tfe_workspace_name          = "homelab-observability"
+    tfe_execution_mode          = "local" # Grafana API is public; pg + Vault are not
     terraform_working_directory = "terraform/observability"
   },
   # homelab-infra repo: one HCP workspace per terraform/<stack>/ root (homelab-<stack>).
@@ -52,7 +52,6 @@ pipelines = [
   # isolated state, and smaller blast radius. Portainer is first (local execution on mgmt VLAN).
   {
     repo_name                   = "homelab-infra"
-    github_org                  = "specterrealm-homelab" # must match var.specterrealm_homelab_org
     environment                 = "personal"
     cloud                       = "homelab"
     function                    = "substrate"
@@ -65,7 +64,6 @@ pipelines = [
   },
   {
     repo_name                   = "homelab-infra"
-    github_org                  = "specterrealm-homelab" # must match var.specterrealm_homelab_org
     environment                 = "personal"
     cloud                       = "homelab"
     function                    = "nas01"
@@ -80,7 +78,6 @@ pipelines = [
     # Consolidated into homelab-infra/terraform/vault (#102 Wave A). Workspace name
     # unchanged → VCS re-point, not a state migration. homelab-vault repo to be archived.
     repo_name                   = "homelab-infra"
-    github_org                  = "specterrealm-homelab" # must match var.specterrealm_homelab_org
     environment                 = "personal"
     cloud                       = "homelab"
     function                    = "vault"
@@ -93,7 +90,6 @@ pipelines = [
   },
   {
     repo_name                   = "homelab-infra"
-    github_org                  = "specterrealm-homelab" # must match var.specterrealm_homelab_org
     environment                 = "personal"
     cloud                       = "homelab"
     function                    = "proxmox"
@@ -106,7 +102,6 @@ pipelines = [
   },
   {
     repo_name                   = "homelab-infra"
-    github_org                  = "specterrealm-homelab" # must match var.specterrealm_homelab_org
     environment                 = "personal"
     cloud                       = "homelab"
     function                    = "unifi"
@@ -118,22 +113,20 @@ pipelines = [
     terraform_working_directory = "terraform/unifi"
   },
   {
-    repo_name             = "homelab-infra"
-    github_org            = "specterrealm-homelab" # must match var.specterrealm_homelab_org
-    environment           = "personal"
-    cloud                 = "homelab"
-    function              = "azure"
-    allowed_refs          = ["refs/heads/main"]
-    tfe_workspace_enabled = true
-    tfe_workspace_name    = "homelab-azure"
-    # No tfe_execution_mode — default remote; Azure AD API is publicly reachable from HCP cloud runners
+    repo_name                   = "homelab-infra"
+    environment                 = "personal"
+    cloud                       = "homelab"
+    function                    = "azure"
+    allowed_refs                = ["refs/heads/main"]
+    tfe_workspace_enabled       = true
+    tfe_workspace_name          = "homelab-azure"
+    tfe_execution_mode          = "local" # Azure AD API is public; pg state backend is VLAN 1 only
     terraform_working_directory = "terraform/azure"
   },
   {
     # Consolidated into homelab-infra/terraform/identity (#102 Wave B). Workspace name
     # unchanged → VCS re-point, not a state migration. homelab-identity repo to be archived.
     repo_name                   = "homelab-infra"
-    github_org                  = "specterrealm-homelab" # must match var.specterrealm_homelab_org
     environment                 = "personal"
     cloud                       = "homelab"
     function                    = "identity"
@@ -192,6 +185,14 @@ managed_repositories = [
     visibility  = "public"
   },
 
+  # ── Homelab ─────────────────────────────────────────────────────────────────
+  {
+    name        = "homelab-infra"
+    description = "Homelab substrate: UniFi, Proxmox, NAS/Portainer, and Synology automation"
+    visibility  = "private"
+    topics      = ["homelab", "terraform", "proxmox", "unifi", "portainer"]
+  },
+
   # ── Skills & tooling ────────────────────────────────────────────────────────
   {
     name        = "claude-skills"
@@ -232,14 +233,9 @@ mccleaton_repositories = [
 ]
 
 specterrealm_homelab_repositories = [
-  # ── Homelab — substrate (UniFi, Proxmox, NAS/Portainer) ─────────────────────
-  {
-    name              = "homelab-infra"
-    description       = "Homelab substrate: UniFi, Proxmox, NAS/Portainer, and Synology automation"
-    visibility        = "private"
-    topics            = ["homelab", "terraform", "proxmox", "unifi", "portainer"]
-    branch_protection = false # free org: private branch protection requires GitHub Team
-  },
+  # homelab-infra transferred to MichaelHeaton personal account (#92).
+  # Entry removed after GitHub transfer + `terraform state rm module.github_repos_specterrealm_homelab...`
+  # and import into module.github_repos (repo had prevent_destroy).
   # homelab-observability, homelab-vault, homelab-identity consolidated into
   # homelab-infra/terraform/{observability,vault,identity} (#102 Waves A–C) and archived.
   # Entries removed after `terraform state rm module.github_repos_specterrealm_homelab...`

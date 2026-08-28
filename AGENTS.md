@@ -51,25 +51,26 @@ Do **not** introduce user PATs with manual expiry for Terraform automation. Use 
 - **New spoke repo + HCP workspace: two PRs, not one**: PR 1 adds only the `*_repositories` entry and merges so apply creates the GitHub repo. PR 2 adds the `pipelines` entry so apply can link the HCP workspace VCS to an existing repo. Combining both in one PR often fails with `Repository doesn't exist or isn't accessible` on the first apply (a second apply usually succeeds, but split PRs avoid the failure). For a new GitHub org, also grant the HCP VCS OAuth provider access to that org before PR 2 — see `docs/runbooks/09-cloudflare-terraform-repo.md` §8.
 - **platform-bootstrap excludes itself from GitHub Terraform management** (ADR-004). It is the foundation — if broken, repair via HCP UI and local Terraform, not via itself.
 
-## Homelab factory (`specterrealm-homelab`)
+## Homelab factory (`MichaelHeaton/homelab-infra`)
 
 This repo is the **platform factory** for homelab ops. Target rename: **`homelab-platform`**
-([homelab-infra #100](https://github.com/specterrealm-homelab/homelab-infra/issues/100)).
+([homelab-infra #100](https://github.com/MichaelHeaton/homelab-infra/issues/100)).
 
 **Operator model (2026-06-22):** Two repos for AI + humans — `homelab-platform` + `homelab-infra`.
 Operational Terraform lives only in `homelab-infra` (one HCP workspace per `terraform/<stack>/`).
 
 | Action | Issue | Effect on factory |
 |--------|-------|-------------------|
-| Merge `homelab-vault`, `homelab-identity`, `homelab-observability` into `homelab-infra` | [#102](https://github.com/specterrealm-homelab/homelab-infra/issues/102) | Fewer `github_repository` resources → **lower McCleaton-Bootstrap RUM** |
-| Wire `homelab-unifi` through factory | [#103](https://github.com/specterrealm-homelab/homelab-infra/issues/103) | Move workspace from legacy `SpecterRealm-HomeLab` org |
-| Gitea on NAS01 | [#90](https://github.com/specterrealm-homelab/homelab-infra/issues/90)–[#93](https://github.com/specterrealm-homelab/homelab-infra/issues/93) | Unblocks LAN-local CI before OpenTofu state migration |
+| Move `homelab-infra` to personal account | [platform-bootstrap #92](https://github.com/MichaelHeaton/platform-bootstrap/issues/92) | Branch protection + single GitHub App path; drops `specterrealm-homelab` org overhead |
+| Merge `homelab-vault`, `homelab-identity`, `homelab-observability` into `homelab-infra` | [#102](https://github.com/MichaelHeaton/homelab-infra/issues/102) | Fewer `github_repository` resources → **lower McCleaton-Bootstrap RUM** |
+| Wire `homelab-unifi` through factory | [#103](https://github.com/MichaelHeaton/homelab-infra/issues/103) | Move workspace from legacy `SpecterRealm-HomeLab` org |
+| Gitea on NAS01 | [#90](https://github.com/MichaelHeaton/homelab-infra/issues/90)–[#93](https://github.com/MichaelHeaton/homelab-infra/issues/93) | Unblocks LAN-local CI before OpenTofu state migration |
 
 **HCP RUM:** The 500-resource cap is **per HCP Terraform organization**, not summed across orgs.
 `McCleaton-Bootstrap` (~395 RUM) and `SpecterRealm-HomeLab` (~106 RUM) are both under cap today;
 repo consolidation still reduces headroom pressure on the factory monolith.
 
-**Spoke docs:** [homelab-infra/docs/iac-modernization.md](https://github.com/specterrealm-homelab/homelab-infra/blob/main/docs/iac-modernization.md) · full audit [AUDIT-REPORT.md](https://github.com/specterrealm-homelab/homelab-infra/blob/main/AUDIT-REPORT.md).
+**Spoke docs:** [homelab-infra/docs/iac-modernization.md](https://github.com/MichaelHeaton/homelab-infra/blob/main/docs/iac-modernization.md) · full audit [AUDIT-REPORT.md](https://github.com/MichaelHeaton/homelab-infra/blob/main/AUDIT-REPORT.md).
 
 When updating homelab pipelines after #102: keep `tfe_workspace_name` unchanged; update `repo_name`
 to `homelab-infra` and `terraform_working_directory` to e.g. `terraform/vault`.

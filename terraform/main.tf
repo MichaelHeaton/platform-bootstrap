@@ -65,6 +65,16 @@ module "homelab_vault_sync" {
   user_name                   = local.homelab_vault_sync_user_name
 }
 
+resource "github_actions_secret" "tfe_ci_token" {
+  for_each = var.tfe_management_enabled ? toset(try(module.tfe_workspaces[0].repos_by_github_org[var.github_org], [])) : toset([])
+
+  repository  = each.value
+  secret_name = "TF_TOKEN_app_terraform_io"
+  value       = local.tfe_api_token
+
+  depends_on = [module.github_repos, module.tfe_workspaces]
+}
+
 resource "github_actions_secret" "tfe_ci_token_mccleaton" {
   for_each = var.tfe_management_enabled ? toset(try(module.tfe_workspaces[0].repos_by_github_org[var.mccleaton_org], [])) : toset([])
 
