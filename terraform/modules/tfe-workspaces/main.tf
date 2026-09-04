@@ -25,6 +25,9 @@ resource "tfe_workspace" "spoke" {
   working_directory = each.value.terraform_working_directory
   auto_apply        = false
   queue_all_runs    = false
+  # Allow destroy when HCP still holds abandoned state after pg cutover (#214).
+  # Without this, disabling tfe_workspace_enabled fails if the workspace has resources.
+  force_delete = true
 
   vcs_repo {
     identifier         = "${local.github_org[each.key]}/${each.value.repo_name}"
