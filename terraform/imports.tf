@@ -5,19 +5,6 @@ import {
   id = "minecraft-modpack-cp-verdant"
 }
 
-# homelab-azure, homelab-identity, and homelab-proxmox HCP workspaces were created
-# before platform-bootstrap managed them. These imports adopt them into TF state.
-import {
-  to = module.tfe_workspaces[0].tfe_workspace.spoke["personal-homelab-azure"]
-  id = "McCleaton-Bootstrap/homelab-azure"
-}
-
-import {
-  to = module.tfe_workspaces[0].tfe_workspace.spoke["personal-homelab-identity"]
-  id = "McCleaton-Bootstrap/homelab-identity"
-}
-
-import {
-  to = module.tfe_workspaces[0].tfe_workspace.spoke["personal-homelab-proxmox"]
-  id = "McCleaton-Bootstrap/homelab-proxmox"
-}
+# homelab-azure / homelab-identity / homelab-proxmox imports removed — HCP workspaces
+# disabled after PostgreSQL cutover (homelab-infra #214). Keeping import blocks would
+# fail plan once tfe_workspace.spoke no longer contains those keys.
