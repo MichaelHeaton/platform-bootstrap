@@ -5,7 +5,7 @@ pipelines = [
   {
     # Consolidated into homelab-infra/terraform/cloudflare (#102 Wave D). Workspace name must stay
     # "cloudflare" (not homelab-infra). Remote execution retired — state is PostgreSQL (#259).
-    # HCP workspace deleted under homelab-infra #214.
+    # Temporarily re-enabled so force_delete can apply before destroy (#214; #95 apply failed).
     repo_name                   = "homelab-infra"
     environment                 = "shared"
     cloud                       = "cloudflare"
@@ -13,7 +13,7 @@ pipelines = [
     allowed_refs                = ["refs/heads/main"]
     secretsmanager_secret_names = ["personal/cloudflare-api-token"]
     tfe_workspace_name          = "cloudflare"
-    tfe_workspace_enabled       = false
+    tfe_workspace_enabled       = true
     tfe_execution_mode          = "local" # Cloudflare API is public; pg state backend is VLAN 1 only (#259)
     terraform_working_directory = "terraform/cloudflare"
   },
@@ -38,7 +38,8 @@ pipelines = [
   },
   {
     # Consolidated into homelab-infra/terraform/observability (#102 Wave C). Workspace name
-    # unchanged → VCS re-point. State on PostgreSQL (#258). HCP shell deleted (#214).
+    # unchanged → VCS re-point. State on PostgreSQL (#258).
+    # Temporarily re-enabled so force_delete can apply before destroy (#214; #95 apply failed).
     repo_name                   = "homelab-infra"
     environment                 = "personal"
     cloud                       = "grafana"
@@ -46,11 +47,11 @@ pipelines = [
     allowed_refs                = ["refs/heads/main"]
     secretsmanager_secret_names = ["personal/grafana-cloud-api-token"]
     tfe_workspace_name          = "homelab-observability"
-    tfe_workspace_enabled       = false
+    tfe_workspace_enabled       = true
     tfe_execution_mode          = "local" # Grafana API is public; pg + Vault are not
     terraform_working_directory = "terraform/observability"
   },
-  # homelab-infra repo: pipelines retain OIDC/SM wiring; HCP workspaces off after pg cutover (#214).
+  # Temporary: re-enable HCP shells so force_delete lands, then disable again (#214).
   {
     repo_name                   = "homelab-infra"
     environment                 = "personal"
@@ -58,7 +59,7 @@ pipelines = [
     function                    = "substrate"
     allowed_refs                = ["refs/heads/main"]
     secretsmanager_secret_names = ["personal/portainer-api-token", "personal/homelab-alloy-grafana-env"]
-    tfe_workspace_enabled       = false
+    tfe_workspace_enabled       = true
     tfe_workspace_name          = "homelab-portainer"
     tfe_execution_mode          = "local" # HCP remote state; plan/apply on mgmt VLAN (Portainer unreachable from cloud)
     terraform_working_directory = "terraform/portainer"
@@ -70,7 +71,7 @@ pipelines = [
     function                    = "nas01"
     allowed_refs                = ["refs/heads/main"]
     secretsmanager_secret_names = [] # DSM creds from Vault (TF_VAR_synology_*), not SM
-    tfe_workspace_enabled       = false
+    tfe_workspace_enabled       = true
     tfe_workspace_name          = "homelab-nas01"
     tfe_execution_mode          = "local" # HCP remote state; plan/apply on mgmt VLAN (DSM API unreachable from cloud)
     terraform_working_directory = "terraform/nas01"
@@ -84,7 +85,7 @@ pipelines = [
     function                    = "vault"
     allowed_refs                = ["refs/heads/main"]
     secretsmanager_secret_names = ["personal/vault-terraform-token"]
-    tfe_workspace_enabled       = false
+    tfe_workspace_enabled       = true
     tfe_workspace_name          = "homelab-vault"
     tfe_execution_mode          = "local" # Vault API on NAS01 mgmt VLAN only
     terraform_working_directory = "terraform/vault"
@@ -96,7 +97,7 @@ pipelines = [
     function                    = "proxmox"
     allowed_refs                = ["refs/heads/main"]
     secretsmanager_secret_names = [] # Proxmox API token from Vault (homelab/proxmox/api-token)
-    tfe_workspace_enabled       = false
+    tfe_workspace_enabled       = true
     tfe_workspace_name          = "homelab-proxmox"
     tfe_execution_mode          = "local" # Proxmox API on mgmt VLAN only; Vault also unreachable from cloud
     terraform_working_directory = "terraform/proxmox"
@@ -108,7 +109,7 @@ pipelines = [
     function                    = "unifi"
     allowed_refs                = ["refs/heads/main"]
     secretsmanager_secret_names = [] # UDM API key from Vault (homelab/unifi/controller-credentials)
-    tfe_workspace_enabled       = false
+    tfe_workspace_enabled       = true
     tfe_workspace_name          = "homelab-unifi"
     tfe_execution_mode          = "local" # UDM API on mgmt VLAN only
     terraform_working_directory = "terraform/unifi"
@@ -119,7 +120,7 @@ pipelines = [
     cloud                       = "homelab"
     function                    = "azure"
     allowed_refs                = ["refs/heads/main"]
-    tfe_workspace_enabled       = false
+    tfe_workspace_enabled       = true
     tfe_workspace_name          = "homelab-azure"
     tfe_execution_mode          = "local" # Azure AD API is public; pg state backend is VLAN 1 only
     terraform_working_directory = "terraform/azure"
@@ -132,7 +133,7 @@ pipelines = [
     cloud                       = "homelab"
     function                    = "identity"
     allowed_refs                = ["refs/heads/main"]
-    tfe_workspace_enabled       = false
+    tfe_workspace_enabled       = true
     tfe_workspace_name          = "homelab-identity"
     tfe_execution_mode          = "local" # Authentik API on NAS01 mgmt VLAN only
     terraform_working_directory = "terraform/identity"
