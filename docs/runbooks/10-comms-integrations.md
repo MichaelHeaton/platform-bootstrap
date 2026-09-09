@@ -1,28 +1,35 @@
 # Runbook 10 — Comms integrations (Slack + Discord)
 
-**Estimated time:** ~30 minutes (initial app setup + SM upload)
+**Estimated time:** ~30 minutes (initial app setup + Vault seed)
 
 ---
 
 ## 1. Overview
 
-SpecterRealm **communication platforms** are factory-managed like Linear, Notion, and Cloudflare
-tokens: **metadata in git**, **tokens in AWS Secrets Manager**, **consumption in spokes**
-(homelab n8n, workstation MCP).
+SpecterRealm **communication platforms** are factory-**documented** here (metadata in git).
+**Secrets do not go in AWS Secrets Manager** — homelab runtime secrets live in **Vault**; the
+operator stores copies in **Apple Password** (or 1Password later) for paste-at-seed, same as
+other homelab n8n tokens.
 
-This runbook does **not** use a Terraform spoke — there is no Slack/Discord provider in
-`platform-bootstrap` today. Add Terraform only if channels/apps become substantial IaC later.
-
-| Platform | Role | Managed here |
+| Platform | Role | Secret home |
 | --- | --- | --- |
-| **Slack** (`specterrealmworkspace.slack.com`) | Homelab ops inbox, n8n alert fan-out, MCP | SM bot token; workspace URL in this doc |
-| **Discord** (`discord.gg/nqzt9RBGm`) | Family/gaming server (kids); optional homelab Tier-1 fan-out | SM bot token (when needed); invite URL in this doc |
+| **Slack** (`specterrealmworkspace.slack.com`) | Homelab ops inbox, n8n alert fan-out, MCP | Vault `homelab/n8n/slack` → ESO → n8n |
+| **Discord** (`discord.gg/nqzt9RBGm`) | Family/gaming server (kids); optional homelab Tier-1 fan-out | Vault `homelab/n8n/discord` → ESO → n8n |
 
 **Retired:** second personal Slack workspace (close after export). **Out of scope:** employer
 Slack, MS Teams (M365 couple chat — not homelab automation unless explicitly added later).
 
-Cross-repo consumer: [homelab-infra `docs/n8n-alerting.md`](https://github.com/MichaelHeaton/homelab-infra/blob/main/docs/n8n-alerting.md)
-(notification routing v2).
+This runbook does **not** use a Terraform spoke — no Slack/Discord provider in
+`platform-bootstrap` today.
+
+Cross-repo consumer: [homelab-infra `docs/n8n-alerting.md`](https://github.com/MichaelHeaton/homelab-infra/blob/main/docs/n8n-alerting.md).
+
+### When AWS SM is still used (not comms)
+
+SM remains only for **platform factory** secrets that HCP/GHA Terraform must read at plan time
+without Vault on the LAN — e.g. `platform-bootstrap/github-app-pem`, `platform-bootstrap/tfe-api-token`,
+and legacy pipeline tokens like `personal/cloudflare-api-token`. Do **not** add homelab or comms
+tokens to SM; that adds cost and a second source of truth. See `AGENTS.md` credential tiers.
 
 ---
 
@@ -37,32 +44,39 @@ Cross-repo consumer: [homelab-infra `docs/n8n-alerting.md`](https://github.com/M
 | Discord invite code | `nqzt9RBGm` |
 
 Optional private copy in `~/.config/ai-skills/local.json` (`slack`, `discord` blocks) — see
-`ai-skills/config/local.template.json`. Never put bot tokens in `local.json`.
+`ai-skills/config/local.template.json`. Never put bot tokens or webhook URLs in `local.json`.
+
+**Operator copy:** save Slack bot token / Discord webhook URL in **Apple Password** (item per
+integration) for rotation and paste into homelab seed scripts.
 
 ---
 
-## 3. AWS Secrets Manager inventory
+## 3. Vault inventory (homelab runtime)
 
-| Secret name | Contents | Consumed by |
+| Vault path | Key(s) | Consumer |
 | --- | --- | --- |
-| `personal/slack-bot-token` | `xoxb-…` bot token (homelab + MCP) | n8n (via Vault sync or direct SM on runner), workstation MCP |
-| `personal/slack-signing-secret` | App signing secret | Only if hosting Slack event endpoints (not needed for incoming webhooks) |
-| `personal/discord-bot-token` | Bot token | n8n, gaming/family bots (optional) |
-| `personal/discord-webhook-url` | Channel webhook URL (optional) | n8n — simpler than bot for one-way alerts |
+| `homelab/n8n/slack` | `webhook_url` or `bot_token` | n8n homelab-alert workflow → `#homelab-alerts` |
+| `homelab/n8n/discord` | `webhook_url` | n8n optional Tier-1 fan-out (dedicated channel) |
 
-**Homelab runtime path (target):** SM → Vault sync (or operator seed) →
-`homelab/n8n/slack` / `homelab/n8n/discord` → ESO → n8n env. See homelab-infra
-`docs/vault-secrets-inventory.md`. Until wired, use `HOMELAB_NOTIFY_WEBHOOK_URL` for generic
-webhooks (ntfy today).
-
-Verify secrets exist (after upload):
+Seed from mgmt VLAN (same pattern as `scripts/seed-n8n-notify-vault.sh`):
 
 ```bash
-export AWS_PROFILE=platform-bootstrap
-export AWS_REGION=us-west-2
+cd /Users/michaelheaton/Projects/specterrealm/homelab/homelab-infra
+vault login   # or ensure VAULT_TOKEN
+# Paste from Apple Password when prompted — scripts TBD (#99)
+# bash scripts/seed-n8n-slack-vault.sh
+# bash scripts/seed-n8n-discord-vault.sh
+kubectl -n automation rollout restart deployment/n8n
+```
 
-aws secretsmanager describe-secret --secret-id personal/slack-bot-token --query Name --output text
-aws secretsmanager describe-secret --secret-id personal/discord-bot-token --query Name --output text
+Full inventory: [homelab-infra `docs/vault-secrets-inventory.md`](https://github.com/MichaelHeaton/homelab-infra/blob/main/docs/vault-secrets-inventory.md).
+
+Verify after seed:
+
+```bash
+vault kv get homelab/n8n/slack
+vault kv get homelab/n8n/discord
+kubectl -n automation get externalsecret n8n-slack n8n-discord
 ```
 
 ---
@@ -77,12 +91,11 @@ aws secretsmanager describe-secret --secret-id personal/discord-bot-token --quer
    - `chat:write.public` (if posting to public channels without joining)
 4. **Install to Workspace** → copy **Bot User OAuth Token** (`xoxb-…`).
 5. Create channel `#homelab-alerts` → invite the bot (`/invite @SpecterRealm Homelab`).
-6. Upload token to SM (§5). For n8n **incoming webhook** alternative, Slack → channel →
-   Integrations → Incoming Webhooks — store URL in `personal/discord-webhook-url` pattern as
-   `personal/slack-incoming-webhook-url` if you prefer webhooks over bot API.
+6. Save token in **Apple Password** → seed Vault `homelab/n8n/slack`.
 
-**n8n:** prefer incoming webhook for Tier-1 alerts (no OAuth refresh); bot token when you need
-threads, reactions, or slash commands.
+**n8n:** prefer **incoming webhook** for Tier-1 alerts (no OAuth refresh): Slack → channel →
+Integrations → Incoming Webhooks → store URL in Vault key `webhook_url`. Use `bot_token` only when
+you need threads, reactions, or slash commands.
 
 ---
 
@@ -95,68 +108,35 @@ in a dedicated channel (e.g. `#homelab-alerts` or `#server-status`) with restric
 
 1. Server Settings → Integrations → Webhooks → New Webhook.
 2. Channel: dedicated homelab channel (not general gaming chat).
-3. Copy webhook URL → SM `personal/discord-webhook-url`.
+3. Copy webhook URL → **Apple Password** → seed Vault `homelab/n8n/discord` key `webhook_url`.
 
 **Bot (optional — games, interactive):**
 
 1. [Discord Developer Portal](https://discord.com/developers/applications) → New Application.
-2. Bot → Reset Token → SM `personal/discord-bot-token`.
+2. Bot → Reset Token → Apple Password (not Vault unless a bot consumer exists).
 3. OAuth2 URL Generator: `bot` scope, permissions: Send Messages, Embed Links.
 4. Invite bot to server; restrict to homelab channel.
 
 ---
 
-## 6. Upload secrets (CLI)
+## 6. Workstation MCP (optional)
 
-```bash
-export AWS_PROFILE=platform-bootstrap
-export AWS_REGION=us-west-2
-
-read -s "?Slack bot token (xoxb-…): " SLACK_TOKEN; echo
-aws secretsmanager create-secret \
-  --name personal/slack-bot-token \
-  --description "SpecterRealm Slack bot — homelab n8n + MCP" \
-  --secret-string "$SLACK_TOKEN" \
-  || aws secretsmanager put-secret-value \
-    --secret-id personal/slack-bot-token \
-    --secret-string "$SLACK_TOKEN"
-unset SLACK_TOKEN
-```
-
-Repeat for `personal/discord-webhook-url` (webhook URL string) or `personal/discord-bot-token`.
+For Cursor/Claude Slack or Discord MCP: read token from **Apple Password** or workstation
+Keychain — mirror Linear/Notion in `workstation-devops` (see platform issue #100). Do not
+replicate into AWS SM.
 
 ---
 
-## 7. Pipeline IAM (when a repo reads SM at runtime)
-
-Add `secretsmanager_secret_names` to the consuming pipeline in `terraform/managed.auto.tfvars`
-only when GHA or HCP must read the secret at plan/apply time. Example (homelab-infra break-glass
-seed job — future):
-
-```hcl
-secretsmanager_secret_names = [
-  "personal/slack-bot-token",
-]
-```
-
-Workstation MCP uses the `platform-bootstrap` AWS profile directly — no pipeline entry required.
-
----
-
-## 8. Rotation
+## 7. Rotation
 
 | Secret | How to rotate |
 | --- | --- |
-| `personal/slack-bot-token` | Slack app → OAuth → Reinstall / rotate → `put-secret-value` → refresh Vault/n8n |
-| `personal/slack-signing-secret` | Slack app → Basic Information → regenerate → `put-secret-value` |
-| `personal/discord-bot-token` | Developer Portal → Bot → Reset Token → `put-secret-value` |
-| `personal/discord-webhook-url` | Discord channel webhook → regenerate URL → `put-secret-value` |
+| Slack webhook / bot token | Regenerate in Slack → update Apple Password → `vault kv put` or re-run seed script → ESO refresh → restart n8n if needed |
+| Discord webhook | Discord channel webhook → regenerate → Apple Password → Vault → ESO |
 
 ---
 
-## 9. Notification routing (homelab)
-
-Factory intent (implemented in homelab-infra n8n — see platform issue tracker):
+## 8. Notification routing (homelab)
 
 | Tier | Alerts | Destinations |
 | --- | --- | --- |
@@ -168,8 +148,9 @@ GitHub Issues remain the **system of record**. Chat is attention, not triage.
 
 ---
 
-## 10. Related
+## 9. Related
 
-- [08 — AWS Secrets Manager](./08-aws-secrets-manager.md) — master inventory
 - [homelab-infra — n8n alerting](https://github.com/MichaelHeaton/homelab-infra/blob/main/docs/n8n-alerting.md)
-- Platform issues: comms factory registration, SM seed, homelab n8n routing (see GitHub)
+- [homelab-infra — vault secrets inventory](https://github.com/MichaelHeaton/homelab-infra/blob/main/docs/vault-secrets-inventory.md)
+- [08 — AWS Secrets Manager](./08-aws-secrets-manager.md) — **factory-only** secrets (not comms)
+- Platform issues: #98 (app bootstrap + Vault seed), #99 (n8n routing), #100 (workstation MCP)
