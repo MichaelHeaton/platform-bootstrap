@@ -35,8 +35,18 @@ Naming convention:
 | `personal/notion-api-token` | Notion integration token (MCP / automation) | Workstation — not wired in this repo yet |
 | `personal/cloudflare-api-token` | Cloudflare API token `platform-terraform-dns` — DNS Edit + Zone Read on 5 zones | HCP workspace `cloudflare` via `shared-cloudflare-dns-tfe` dynamic creds — see runbook 09 |
 | `personal/curseforge-api-key` | CurseForge legacy upload API key (`X-Api-Token`) | GHA OIDC on `minecraft-modpack-cp-verdant` + `specterrealm-core`; workstation `make upload-cf` |
+| `personal/slack-bot-token` | SpecterRealm Slack bot (`xoxb-…`) — workspace `specterrealmworkspace` | homelab n8n (planned); workstation MCP — see runbook 10 |
+| `personal/discord-bot-token` | Discord bot token (optional) | homelab n8n / family bots — see runbook 10 |
+| `personal/discord-webhook-url` | Discord channel webhook (one-way alerts) | homelab n8n (planned) — see runbook 10 |
 
-Verify all six exist:
+Verify platform secrets exist (comms secrets optional until uploaded):
+
+```bash
+aws secretsmanager describe-secret --secret-id personal/slack-bot-token --query Name --output text 2>/dev/null || echo "personal/slack-bot-token — not yet uploaded"
+aws secretsmanager describe-secret --secret-id personal/discord-webhook-url --query Name --output text 2>/dev/null || echo "personal/discord-webhook-url — not yet uploaded"
+```
+
+Verify core six exist:
 
 ```bash
 export AWS_PROFILE=platform-bootstrap
@@ -316,6 +326,9 @@ Legacy GHA OIDC roles on other spokes may still exist for validate-only workflow
 | `personal/notion-api-token` | Notion integration → refresh secret → `put-secret-value` → update MCP env |
 | `personal/cloudflare-api-token` | Cloudflare dashboard → roll token → `put-secret-value` → update spoke repos / env |
 | `personal/curseforge-api-key` | CurseForge Console → revoke old key → create new → `put-secret-value` (no GitHub secret to update) |
+| `personal/slack-bot-token` | Slack app → reinstall / rotate bot token → `put-secret-value` → refresh homelab Vault/n8n |
+| `personal/discord-bot-token` | Discord Developer Portal → Bot → Reset Token → `put-secret-value` |
+| `personal/discord-webhook-url` | Discord channel webhook → regenerate URL → `put-secret-value` |
 
 Never commit secret values to git or paste them into PR descriptions.
 
@@ -334,6 +347,7 @@ Never commit secret values to git or paste them into PR descriptions.
 
 - [07 — GitHub App authentication](./07-github-app-auth.md)
 - [09 — Cloudflare Terraform repo](./09-cloudflare-terraform-repo.md)
+- [10 — Comms integrations (Slack + Discord)](./10-comms-integrations.md)
 - [Issue #51 — Migrate secrets to AWS Secrets Manager](https://github.com/MichaelHeaton/platform-bootstrap/issues/51) (closed)
 - [Issue #63 — Post-cloudflare rollout housekeeping](https://github.com/MichaelHeaton/platform-bootstrap/issues/63)
 - `AGENTS.md` — credential tier strategy

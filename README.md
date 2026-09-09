@@ -30,6 +30,7 @@ Complete these in order. Each runbook assumes the previous one is done.
 7. [07 — GitHub App Authentication](docs/runbooks/07-github-app-auth.md)
 8. [08 — AWS Secrets Manager](docs/runbooks/08-aws-secrets-manager.md)
 9. [09 — Cloudflare Terraform Repo](docs/runbooks/09-cloudflare-terraform-repo.md)
+10. [10 — Comms integrations (Slack + Discord)](docs/runbooks/10-comms-integrations.md)
 
 ## Homelab (`MichaelHeaton/homelab-infra`)
 
