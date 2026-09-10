@@ -129,9 +129,15 @@ jobs:
 
       - name: Load HCP token for state download
         run: |
-          tok="$(aws secretsmanager get-secret-value \
-            --secret-id platform-bootstrap/tfe-api-token \
-            --query SecretString --output text)"
+          # Prefer Vault (no aws CLI on sibling runner). Path seeded from SM.
+          tok="$(curl -sf \
+            -H "X-Vault-Token: ${VAULT_TOKEN}" \
+            "${VAULT_ADDR%/}/v1/homelab/data/hcp/tfe-api-token" \
+            | jq -r '.data.data.token // empty')"
+          if [[ -z "${tok}" ]]; then
+            echo "::error::Vault homelab/hcp/tfe-api-token missing — seed from SM platform-bootstrap/tfe-api-token"
+            exit 1
+          fi
           echo "::add-mask::${tok}"
           echo "TF_TOKEN_app_terraform_io=${tok}" >> "${GITHUB_ENV}"
 
