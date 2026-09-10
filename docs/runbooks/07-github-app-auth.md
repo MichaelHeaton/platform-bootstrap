@@ -93,24 +93,28 @@ Create the org first — see [09-cloudflare-terraform-repo.md](./09-cloudflare-t
 
 ---
 
-## 4. Configure HCP Terraform workspace variables
+## 4. Configure GitHub Actions variables (factory plan/apply)
 
-In the `McCleaton-Bootstrap/platform-bootstrap` workspace, **remove** legacy sensitive variables:
+> **2026-09-10:** Factory state is PostgreSQL, not HCP. These values are **repository Actions
+> variables** on `MichaelHeaton/platform-bootstrap` (names must not start with `GITHUB_`).
+> Historical HCP workspace terraform vars are obsolete for plan/apply.
 
-- `tfe_pb_michaelheaton` (legacy PAT)
-- `tfe_pb_specterrealm` (legacy PAT)
-- `tfe_pb_specterrealm_homelab` (legacy PAT)
+Set (or confirm) these Actions **variables** (not secrets):
 
-Add these workspace variables (category **terraform**, not env):
+| Variable | Value |
+|---|---|
+| `GH_APP_ID` | App ID from step 2 |
+| `GH_APP_INSTALLATION_ID` | Installation ID on MichaelHeaton |
+| `MCCLEATON_GITHUB_APP_INSTALLATION_ID` | Installation ID on McCleaton (platform infra org) |
+| `SPECTERREALM_GITHUB_APP_INSTALLATION_ID` | Installation ID on SpecterRealm (Minecraft/modpacks) |
+| `SPECTERREALM_HOMELAB_GITHUB_APP_INSTALLATION_ID` | Installation ID on specterrealm-homelab (homelab repos) |
+| `TFE_VCS_OAUTH_TOKEN_ID` | OAuth token ID from HCP Organization Settings → VCS Providers (McCleaton GitHub) — still needed so the factory can manage **spoke** HCP workspaces |
 
-| Variable | Sensitive? | Value |
-|---|---|---|
-| `github_app_id` | No | App ID from step 2 |
-| `github_app_installation_id` | No | Installation ID on MichaelHeaton |
-| `mccleaton_github_app_installation_id` | No | Installation ID on McCleaton (platform infra org) |
-| `specterrealm_github_app_installation_id` | No | Installation ID on SpecterRealm (Minecraft/modpacks) |
-| `specterrealm_homelab_github_app_installation_id` | No | Installation ID on specterrealm-homelab (homelab repos) |
-| `tfe_vcs_oauth_token_id` | No | OAuth token ID from HCP Organization Settings → VCS Providers (McCleaton GitHub) |
+Also ensure secrets `VAULT_APPROLE_ROLE_ID` / `VAULT_APPROLE_SECRET_ID` exist (same AppRole as homelab-infra CI).
+
+If cleaning up the disabled HCP workspace shell, **remove** legacy sensitive variables that may still linger:
+
+- `tfe_pb_michaelheaton` / `tfe_pb_specterrealm` / `tfe_pb_specterrealm_homelab` (legacy PATs)
 
 > **New org + HCP spoke workspace:** the GitHub App creates repos; HCP workspace VCS links use
 > this OAuth token. After installing the App on a new org, **reconnect or extend the VCS provider**

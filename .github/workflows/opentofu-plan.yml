@@ -1,15 +1,14 @@
 # OpenTofu plan on self-hosted runner (VLAN 1) against PostgreSQL state (#97).
 # Replaces HCP remote execution for MichaelHeaton/platform-bootstrap.
+#
+# pull_request has no path filters: branch protection requires the `plan` check
+# to report on every PR. Docs-only PRs short-circuit after a path detect.
 
 name: OpenTofu Plan
 
 on:
   pull_request:
     branches: [main]
-    paths:
-      - "terraform/**"
-      - "scripts/tofu-*.sh"
-      - ".github/workflows/opentofu-*.yml"
   push:
     branches: [main]
     paths:
@@ -53,10 +52,29 @@ jobs:
       TF_VAR_specterrealm_homelab_github_app_installation_id: ${{ vars.SPECTERREALM_HOMELAB_GITHUB_APP_INSTALLATION_ID }}
       TF_VAR_tfe_vcs_oauth_token_id: ${{ vars.TFE_VCS_OAUTH_TOKEN_ID }}
     steps:
-      # checkout@v4 / aws-credentials@v4: sibling runner may still be on 2.321 (no node24).
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect tofu-relevant path changes
+        id: tofu
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" != "pull_request" ]]; then
+            echo "run=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          base="${{ github.event.pull_request.base.sha }}"
+          if git diff --name-only "${base}" HEAD \
+            | grep -E '^(terraform/|scripts/tofu-|\.github/workflows/opentofu-)'; then
+            echo "run=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "run=false" >> "${GITHUB_OUTPUT}"
+            echo "No terraform/tofu workflow paths changed — plan check satisfied."
+          fi
 
       - name: Vault AppRole login
+        if: steps.tofu.outputs.run == 'true'
         env:
           VAULT_APPROLE_ROLE_ID: ${{ secrets.VAULT_APPROLE_ROLE_ID }}
           VAULT_APPROLE_SECRET_ID: ${{ secrets.VAULT_APPROLE_SECRET_ID }}
@@ -67,12 +85,14 @@ jobs:
           echo "VAULT_ADDR=${VAULT_ADDR}" >> "${GITHUB_ENV}"
 
       - name: Configure AWS credentials (OIDC)
+        if: steps.tofu.outputs.run == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/platform-bootstrap-github-actions
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Assert tofu present
+        if: steps.tofu.outputs.run == 'true'
         run: |
           if ! command -v tofu >/dev/null 2>&1; then
             echo "::error::tofu not found — bootstrap-runner.yml on runner-lxc-01"
@@ -81,15 +101,19 @@ jobs:
           tofu version
 
       - name: tofu init (pg)
+        if: steps.tofu.outputs.run == 'true'
         run: bash scripts/tofu-pg-init.sh
 
       - name: tofu fmt -check
+        if: steps.tofu.outputs.run == 'true'
         run: tofu -chdir=terraform fmt -check -recursive
 
       - name: tofu validate
+        if: steps.tofu.outputs.run == 'true'
         run: tofu -chdir=terraform validate
 
       - name: tofu plan
+        if: steps.tofu.outputs.run == 'true'
         run: tofu -chdir=terraform plan -no-color -input=false
 
   migrate-state:

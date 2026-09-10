@@ -47,10 +47,10 @@ Roadmap and audit backlog: **homelab-infra** [docs/iac-modernization.md](https:/
    GitHub repository that should be managed by this platform (branch protection, CODEOWNERS, etc.).
 2. Add an entry to `var.pipelines` in `terraform/main.tf` with the project's `repo_name`,
    `environment`, `cloud`, `function`, and `allowed_refs`.
-3. Open a PR — the `terraform-plan` workflow will post a comment showing exactly what will be
-   created before anyone approves.
-4. After merge, the `terraform-apply` workflow creates the S3 state path and the IAM role
-   automatically. No manual AWS console steps required.
+3. Open a PR — the **OpenTofu Plan** workflow runs `tofu plan` on the self-hosted
+   sibling runner against PostgreSQL state (`homelab_platform`).
+4. After merge, plan again on `main`; apply is break-glass / gated until an apply
+   workflow is added (see [runbook 11](docs/runbooks/11-postgresql-state-cutover.md)).
 5. The new repository can now authenticate to AWS via OIDC using the role
    `{environment}-{cloud}-{function}-github-actions`.
 
@@ -124,8 +124,7 @@ platform-bootstrap/
 ├── .github/
 │   ├── CODEOWNERS                          # All changes require @MichaelHeaton review
 │   └── workflows/
-│       ├── terraform-plan.yml              # Runs on PRs; posts plan output as a comment
-│       ├── terraform-apply.yml             # Runs on merge to main; applies the plan
+│       ├── opentofu-plan.yml               # Self-hosted plan (+ migrate-state) vs PostgreSQL
 │       ├── compliance-check.yml            # Scheduled + on-PR compliance drift detection
 │       └── pre-publication-audit.yml       # Blocks repo visibility changes to public
 ├── docs/
@@ -133,16 +132,17 @@ platform-bootstrap/
 │   └── runbooks/                           # Step-by-step operational procedures
 │       ├── 01-aws-account-setup.md
 │       ├── 02-bootstrap.md
-│       └── 03-disaster-recovery.md
+│       ├── 11-postgresql-state-cutover.md  # Factory state on pg (#97)
+│       └── …
 ├── scripts/
 │   ├── compliance_check.py                 # Compliance drift detection script (see ADR-005)
+│   ├── tofu-pg-init.sh                     # OpenTofu init against homelab_platform
 │   └── tests/                              # pytest tests for the compliance script
 ├── terraform/
-│   ├── backend.tf                          # S3 backend config (bucket/region via -backend-config)
-│   ├── main.tf                             # Root module — wires together the three modules below
+│   ├── main.tf                             # Root module — wires together the modules below
 │   ├── variables.tf                        # Input variables (supplied via GitHub Actions vars)
 │   ├── outputs.tf                          # Outputs: bucket ARN, role ARNs, repo names
-│   ├── versions.tf                         # Provider versions; enforces Terraform >= 1.10.0
+│   ├── versions.tf                         # Providers + backend "pg" (homelab_platform)
 │   └── modules/
 │       ├── s3-state/                       # S3 bucket, versioning, encryption, bucket policy
 │       ├── oidc-roles/                     # OIDC provider, IAM roles, per-pipeline IAM policies
