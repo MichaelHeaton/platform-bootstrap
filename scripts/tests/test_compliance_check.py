@@ -72,10 +72,9 @@ def tmp_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def minimal_repo(tmp_repo: Path) -> Path:
     """
     A repo with all structural checks passing:
-    - terraform/versions.tf  (with required_providers for aws and github)
-    - terraform/backend.tf   (with s3)
+    - terraform/versions.tf  (aws/github providers + backend "pg")
     - .github/CODEOWNERS
-    - .github/workflows/{terraform-plan,terraform-apply,compliance-check,pre-publication-audit}.yml
+    - .github/workflows/{opentofu-plan,compliance-check,pre-publication-audit}.yml
     - terraform/modules/example/{main,variables,outputs}.tf
     """
     # versions.tf
@@ -84,6 +83,10 @@ def minimal_repo(tmp_repo: Path) -> Path:
         """\
         terraform {
           required_version = ">= 1.10.0"
+          backend "pg" {
+            schema_name          = "homelab_platform"
+            skip_schema_creation = true
+          }
           required_providers {
             aws = {
               source  = "hashicorp/aws"
@@ -98,25 +101,12 @@ def minimal_repo(tmp_repo: Path) -> Path:
         """,
     )
 
-    # backend.tf
-    _write(
-        tmp_repo / "terraform" / "backend.tf",
-        """\
-        terraform {
-          backend "s3" {
-            key = "platform-bootstrap/terraform.tfstate"
-          }
-        }
-        """,
-    )
-
     # CODEOWNERS
     _write(tmp_repo / ".github" / "CODEOWNERS", "* @owner\n")
 
     # Workflow files
     for wf in [
-        "terraform-plan.yml",
-        "terraform-apply.yml",
+        "opentofu-plan.yml",
         "compliance-check.yml",
         "pre-publication-audit.yml",
     ]:
@@ -435,10 +425,10 @@ class TestModulesComplete:
 
 
 class TestBackendConfigured:
-    def test_passes_when_backend_tf_has_s3(self, tmp_repo: Path) -> None:
+    def test_passes_when_versions_tf_has_pg(self, tmp_repo: Path) -> None:
         _write(
-            tmp_repo / "terraform" / "backend.tf",
-            'terraform { backend "s3" { key = "foo" } }\n',
+            tmp_repo / "terraform" / "versions.tf",
+            'terraform { backend "pg" { schema_name = "homelab_platform" } }\n',
         )
         result = _single(cc.check_backend_configured(), "BACKEND_CONFIGURED")
         assert result.status == cc.Status.PASS
@@ -447,14 +437,14 @@ class TestBackendConfigured:
         result = _single(cc.check_backend_configured(), "BACKEND_CONFIGURED")
         assert result.status == cc.Status.FAIL
 
-    def test_fails_when_s3_not_in_file(self, tmp_repo: Path) -> None:
+    def test_fails_when_pg_not_in_file(self, tmp_repo: Path) -> None:
         _write(
-            tmp_repo / "terraform" / "backend.tf",
-            'terraform { backend "local" { path = "terraform.tfstate" } }\n',
+            tmp_repo / "terraform" / "versions.tf",
+            'terraform { cloud { organization = "McCleaton-Bootstrap" } }\n',
         )
         result = _single(cc.check_backend_configured(), "BACKEND_CONFIGURED")
         assert result.status == cc.Status.FAIL
-        assert "s3" in result.message
+        assert "pg" in result.message
 
 
 # ---------------------------------------------------------------------------
@@ -526,8 +516,7 @@ class TestPlatformBootstrapNotManaged:
 class TestWorkflowsExist:
     def test_passes_when_all_workflows_present(self, tmp_repo: Path) -> None:
         for wf in [
-            "terraform-plan.yml",
-            "terraform-apply.yml",
+            "opentofu-plan.yml",
             "compliance-check.yml",
             "pre-publication-audit.yml",
         ]:
@@ -536,7 +525,7 @@ class TestWorkflowsExist:
         assert all(r.status == cc.Status.PASS for r in results)
 
     def test_fails_when_one_workflow_missing(self, tmp_repo: Path) -> None:
-        for wf in ["terraform-plan.yml", "terraform-apply.yml", "compliance-check.yml"]:
+        for wf in ["opentofu-plan.yml", "compliance-check.yml"]:
             _write(tmp_repo / ".github" / "workflows" / wf, "# ok\n")
         # pre-publication-audit.yml is missing
         results = cc.check_workflows_exist()
@@ -653,6 +642,9 @@ class TestMainExitCode:
             tmp_repo / "terraform" / "versions.tf",
             textwrap.dedent("""\
                 terraform {
+                  backend "pg" {
+                    schema_name = "homelab_platform"
+                  }
                   required_providers {
                     aws    = { source = "hashicorp/aws" }
                     github = { source = "integrations/github" }
@@ -660,14 +652,9 @@ class TestMainExitCode:
                 }
             """),
         )
-        _write(
-            tmp_repo / "terraform" / "backend.tf",
-            'terraform { backend "s3" { key = "x" } }\n',
-        )
         _write(tmp_repo / ".github" / "CODEOWNERS", "* @owner\n")
         for wf in [
-            "terraform-plan.yml",
-            "terraform-apply.yml",
+            "opentofu-plan.yml",
             "compliance-check.yml",
             "pre-publication-audit.yml",
         ]:

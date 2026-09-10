@@ -46,14 +46,15 @@ jobs:
       TF_VAR_aws_account_id: ${{ vars.AWS_ACCOUNT_ID }}
       TF_VAR_state_bucket_name: ${{ vars.TF_STATE_BUCKET_NAME }}
       TF_VAR_github_org: ${{ vars.GH_ORG }}
-      TF_VAR_github_app_id: ${{ vars.GITHUB_APP_ID }}
-      TF_VAR_github_app_installation_id: ${{ vars.GITHUB_APP_INSTALLATION_ID }}
+      TF_VAR_github_app_id: ${{ vars.GH_APP_ID }}
+      TF_VAR_github_app_installation_id: ${{ vars.GH_APP_INSTALLATION_ID }}
       TF_VAR_specterrealm_github_app_installation_id: ${{ vars.SPECTERREALM_GITHUB_APP_INSTALLATION_ID }}
       TF_VAR_mccleaton_github_app_installation_id: ${{ vars.MCCLEATON_GITHUB_APP_INSTALLATION_ID }}
       TF_VAR_specterrealm_homelab_github_app_installation_id: ${{ vars.SPECTERREALM_HOMELAB_GITHUB_APP_INSTALLATION_ID }}
       TF_VAR_tfe_vcs_oauth_token_id: ${{ vars.TFE_VCS_OAUTH_TOKEN_ID }}
     steps:
-      - uses: actions/checkout@v7
+      # checkout@v4 / aws-credentials@v4: sibling runner may still be on 2.321 (no node24).
+      - uses: actions/checkout@v4
 
       - name: Vault AppRole login
         env:
@@ -66,7 +67,7 @@ jobs:
           echo "VAULT_ADDR=${VAULT_ADDR}" >> "${GITHUB_ENV}"
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/platform-bootstrap-github-actions
           aws-region: ${{ vars.AWS_REGION }}
@@ -101,14 +102,14 @@ jobs:
       TF_VAR_aws_account_id: ${{ vars.AWS_ACCOUNT_ID }}
       TF_VAR_state_bucket_name: ${{ vars.TF_STATE_BUCKET_NAME }}
       TF_VAR_github_org: ${{ vars.GH_ORG }}
-      TF_VAR_github_app_id: ${{ vars.GITHUB_APP_ID }}
-      TF_VAR_github_app_installation_id: ${{ vars.GITHUB_APP_INSTALLATION_ID }}
+      TF_VAR_github_app_id: ${{ vars.GH_APP_ID }}
+      TF_VAR_github_app_installation_id: ${{ vars.GH_APP_INSTALLATION_ID }}
       TF_VAR_specterrealm_github_app_installation_id: ${{ vars.SPECTERREALM_GITHUB_APP_INSTALLATION_ID }}
       TF_VAR_mccleaton_github_app_installation_id: ${{ vars.MCCLEATON_GITHUB_APP_INSTALLATION_ID }}
       TF_VAR_specterrealm_homelab_github_app_installation_id: ${{ vars.SPECTERREALM_HOMELAB_GITHUB_APP_INSTALLATION_ID }}
       TF_VAR_tfe_vcs_oauth_token_id: ${{ vars.TFE_VCS_OAUTH_TOKEN_ID }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
       - name: Vault AppRole login
         env:
@@ -121,7 +122,7 @@ jobs:
           echo "VAULT_ADDR=${VAULT_ADDR}" >> "${GITHUB_ENV}"
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/platform-bootstrap-github-actions
           aws-region: ${{ vars.AWS_REGION }}

@@ -12,10 +12,10 @@ one repo-scoped runner across repos).
    - Ansible Run → `bootstrap-github-runner-platform-bootstrap.yml`
 2. **CI secrets/vars on this repo:**
    - `VAULT_APPROLE_ROLE_ID` / `VAULT_APPROLE_SECRET_ID` (same AppRole as homelab-infra CI)
-   - GitHub Actions **variables** formerly on the HCP workspace: `GITHUB_APP_ID`,
-     `GITHUB_APP_INSTALLATION_ID`, `SPECTERREALM_GITHUB_APP_INSTALLATION_ID`,
+   - GitHub Actions **variables** formerly on the HCP workspace: `GH_APP_ID`,
+     `GH_APP_INSTALLATION_ID`, `SPECTERREALM_GITHUB_APP_INSTALLATION_ID`,
      `MCCLEATON_GITHUB_APP_INSTALLATION_ID`, `SPECTERREALM_HOMELAB_GITHUB_APP_INSTALLATION_ID`,
-     `TFE_VCS_OAUTH_TOKEN_ID`
+     `TFE_VCS_OAUTH_TOKEN_ID` (names must not start with `GITHUB_` — Actions rejects that prefix)
 3. **Disable HCP auto-apply / VCS** on `McCleaton-Bootstrap/platform-bootstrap` before merging
    the `backend "pg"` change (HCP cannot reach VLAN 1).
 4. Merge this PR → dispatch **OpenTofu Plan** → `action=migrate-state`.
