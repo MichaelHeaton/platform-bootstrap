@@ -1,12 +1,11 @@
 terraform {
   required_version = ">= 1.10.0"
 
-  cloud {
-    organization = "McCleaton-Bootstrap"
-
-    workspaces {
-      name = "platform-bootstrap"
-    }
+  # Remote state on pg-lxc-01 (homelab_platform / tofu_platform). Plan/apply on
+  # runner-lxc-01 — HCP cloud runners cannot reach VLAN 1 (#97).
+  backend "pg" {
+    schema_name          = "homelab_platform"
+    skip_schema_creation = true
   }
 
   required_providers {

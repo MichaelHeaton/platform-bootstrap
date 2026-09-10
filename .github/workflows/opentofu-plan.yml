@@ -1,0 +1,151 @@
+# OpenTofu plan on self-hosted runner (VLAN 1) against PostgreSQL state (#97).
+# Replaces HCP remote execution for MichaelHeaton/platform-bootstrap.
+
+name: OpenTofu Plan
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "terraform/**"
+      - "scripts/tofu-*.sh"
+      - ".github/workflows/opentofu-*.yml"
+  push:
+    branches: [main]
+    paths:
+      - "terraform/**"
+      - "scripts/tofu-*.sh"
+      - ".github/workflows/opentofu-*.yml"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "plan | migrate-state"
+        required: true
+        type: choice
+        options:
+          - plan
+          - migrate-state
+        default: plan
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: opentofu-platform-bootstrap-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    if: github.event_name != 'workflow_dispatch' || inputs.action == 'plan'
+    runs-on: [self-hosted, linux, homelab]
+    env:
+      HOMELAB_VAULT_ADDR: http://172.16.0.5:8200
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+      TF_VAR_aws_account_id: ${{ vars.AWS_ACCOUNT_ID }}
+      TF_VAR_state_bucket_name: ${{ vars.TF_STATE_BUCKET_NAME }}
+      TF_VAR_github_org: ${{ vars.GH_ORG }}
+      TF_VAR_github_app_id: ${{ vars.GITHUB_APP_ID }}
+      TF_VAR_github_app_installation_id: ${{ vars.GITHUB_APP_INSTALLATION_ID }}
+      TF_VAR_specterrealm_github_app_installation_id: ${{ vars.SPECTERREALM_GITHUB_APP_INSTALLATION_ID }}
+      TF_VAR_mccleaton_github_app_installation_id: ${{ vars.MCCLEATON_GITHUB_APP_INSTALLATION_ID }}
+      TF_VAR_specterrealm_homelab_github_app_installation_id: ${{ vars.SPECTERREALM_HOMELAB_GITHUB_APP_INSTALLATION_ID }}
+      TF_VAR_tfe_vcs_oauth_token_id: ${{ vars.TFE_VCS_OAUTH_TOKEN_ID }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Vault AppRole login
+        env:
+          VAULT_APPROLE_ROLE_ID: ${{ secrets.VAULT_APPROLE_ROLE_ID }}
+          VAULT_APPROLE_SECRET_ID: ${{ secrets.VAULT_APPROLE_SECRET_ID }}
+        run: |
+          eval "$(bash scripts/vault-approle-login.sh)"
+          echo "::add-mask::${VAULT_TOKEN}"
+          echo "VAULT_TOKEN=${VAULT_TOKEN}" >> "${GITHUB_ENV}"
+          echo "VAULT_ADDR=${VAULT_ADDR}" >> "${GITHUB_ENV}"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/platform-bootstrap-github-actions
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Assert tofu present
+        run: |
+          if ! command -v tofu >/dev/null 2>&1; then
+            echo "::error::tofu not found — bootstrap-runner.yml on runner-lxc-01"
+            exit 1
+          fi
+          tofu version
+
+      - name: tofu init (pg)
+        run: bash scripts/tofu-pg-init.sh
+
+      - name: tofu fmt -check
+        run: tofu -chdir=terraform fmt -check -recursive
+
+      - name: tofu validate
+        run: tofu -chdir=terraform validate
+
+      - name: tofu plan
+        run: tofu -chdir=terraform plan -no-color -input=false
+
+  migrate-state:
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'migrate-state'
+    runs-on: [self-hosted, linux, homelab]
+    env:
+      HOMELAB_VAULT_ADDR: http://172.16.0.5:8200
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+      TF_VAR_aws_account_id: ${{ vars.AWS_ACCOUNT_ID }}
+      TF_VAR_state_bucket_name: ${{ vars.TF_STATE_BUCKET_NAME }}
+      TF_VAR_github_org: ${{ vars.GH_ORG }}
+      TF_VAR_github_app_id: ${{ vars.GITHUB_APP_ID }}
+      TF_VAR_github_app_installation_id: ${{ vars.GITHUB_APP_INSTALLATION_ID }}
+      TF_VAR_specterrealm_github_app_installation_id: ${{ vars.SPECTERREALM_GITHUB_APP_INSTALLATION_ID }}
+      TF_VAR_mccleaton_github_app_installation_id: ${{ vars.MCCLEATON_GITHUB_APP_INSTALLATION_ID }}
+      TF_VAR_specterrealm_homelab_github_app_installation_id: ${{ vars.SPECTERREALM_HOMELAB_GITHUB_APP_INSTALLATION_ID }}
+      TF_VAR_tfe_vcs_oauth_token_id: ${{ vars.TFE_VCS_OAUTH_TOKEN_ID }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Vault AppRole login
+        env:
+          VAULT_APPROLE_ROLE_ID: ${{ secrets.VAULT_APPROLE_ROLE_ID }}
+          VAULT_APPROLE_SECRET_ID: ${{ secrets.VAULT_APPROLE_SECRET_ID }}
+        run: |
+          eval "$(bash scripts/vault-approle-login.sh)"
+          echo "::add-mask::${VAULT_TOKEN}"
+          echo "VAULT_TOKEN=${VAULT_TOKEN}" >> "${GITHUB_ENV}"
+          echo "VAULT_ADDR=${VAULT_ADDR}" >> "${GITHUB_ENV}"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/platform-bootstrap-github-actions
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Load HCP token for state download
+        run: |
+          tok="$(aws secretsmanager get-secret-value \
+            --secret-id platform-bootstrap/tfe-api-token \
+            --query SecretString --output text)"
+          echo "::add-mask::${tok}"
+          echo "TF_TOKEN_app_terraform_io=${tok}" >> "${GITHUB_ENV}"
+
+      - name: Migrate HCP state → PostgreSQL
+        run: bash scripts/tofu-hcp-state-to-pg.sh
+
+      - name: Verify clean plan
+        run: |
+          bash scripts/tofu-pg-init.sh
+          set +e
+          tofu -chdir=terraform plan -no-color -input=false -detailed-exitcode
+          ec=$?
+          set -e
+          if [[ $ec -eq 2 ]]; then
+            echo "::error::plan has changes after migrate — inspect before apply"
+            exit 1
+          fi
+          exit "$ec"
