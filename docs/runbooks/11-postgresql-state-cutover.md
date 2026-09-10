@@ -19,6 +19,10 @@ one repo-scoped runner across repos).
 3. **Disable HCP auto-apply / VCS** on `McCleaton-Bootstrap/platform-bootstrap` before merging
    the `backend "pg"` change (HCP cannot reach VLAN 1).
 4. Merge this PR → dispatch **OpenTofu Plan** → `action=migrate-state`.
+   - Migrate job reads `TF_TOKEN_app_terraform_io` from Vault `homelab/hcp/tfe-api-token`
+     (seed once from SM `platform-bootstrap/tfe-api-token` — sibling runner has no `aws` CLI).
+   - If `pq: permission denied for sequence global_states_id_seq`, grant
+     `ALL ON SEQUENCE public.global_states_id_seq` to `tofu_platform` (owned by first writer).
 5. Confirm plan is clean; leave HCP workspace disabled (or delete after soak).
 
 ## Day-to-day
@@ -26,3 +30,8 @@ one repo-scoped runner across repos).
 - PR / push to `main` touching `terraform/**` → **OpenTofu Plan** on `[self-hosted, linux, homelab]`.
 - Apply: extend with a gated apply workflow when ready; until then use break-glass
   `tofu apply` on the runner after plan review.
+
+## Status (2026-09-10)
+
+Cutover complete: HCP serial 154 pushed to `homelab_platform`; local `tofu plan` → **No changes**.
+HCP workspace VCS disconnected + `auto-apply=false`.
