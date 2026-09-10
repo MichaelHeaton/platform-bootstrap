@@ -2,6 +2,12 @@
 
 **Estimated time:** ~90 minutes (first time) / ~20 minutes (re-bootstrap from existing infrastructure)
 
+> **2026-09-10 state cutover:** Live factory state is PostgreSQL (`homelab_platform`), not
+> HCP remote. Steady-state plan is GitHub **OpenTofu Plan** on the sibling self-hosted
+> runner. See [11-postgresql-state-cutover.md](11-postgresql-state-cutover.md). Sections
+> below that describe HCP VCS apply are **historical bootstrap** context — do not re-enable
+> HCP auto-apply for this workspace.
+
 ---
 
 ## 1. Overview
@@ -11,23 +17,24 @@
 | Layer | Purpose |
 |---|---|
 | **S3 state bucket** | Shared bucket for legacy spoke state paths and compliance checks |
-| **GitHub Actions OIDC** | `platform-bootstrap-github-actions` — validate + compliance workflows |
-| **HCP Terraform OIDC** | `platform-bootstrap-tfe` — plan/apply with AWS dynamic credentials |
-| **Secrets Manager** | Canonical store for GitHub App PEM and HCP org API token |
-| **HCP workspace** | `McCleaton-Bootstrap/platform-bootstrap` — remote state + VCS-driven runs |
+| **GitHub Actions OIDC** | `platform-bootstrap-github-actions` — validate + compliance + OpenTofu Plan |
+| **HCP Terraform OIDC** | `platform-bootstrap-tfe` — historically used for HCP remote runs; still used when the factory manages spoke HCP workspaces via the `tfe` provider |
+| **Secrets Manager** | Canonical store for GitHub App PEM and HCP org API token (also mirrored to Vault `homelab/hcp/tfe-api-token` for migrate-state) |
+| **State backend** | PostgreSQL on `pg-lxc-01` schema `homelab_platform` (HCP workspace shell disabled) |
 
-### Execution model (after bootstrap)
+### Execution model (after bootstrap / after #97)
 
 ```text
 Pull request → GitHub Actions
-                 ├── Terraform Validate (fmt + validate)
+                 ├── OpenTofu Plan (self-hosted → PostgreSQL)
                  └── Compliance Check (structural + optional AWS read-only)
 
-Merge to main → HCP Terraform (VCS)
-                 └── plan / apply via platform-bootstrap-tfe → SM read at runtime
+Merge to main → GitHub Actions OpenTofu Plan again
+                 └── apply: break-glass / future gated apply workflow
 ```
 
-Do **not** use GitHub Actions for Terraform plan/apply on this repo. HCP owns that path.
+Do **not** re-attach VCS or turn on HCP auto-apply for `McCleaton-Bootstrap/platform-bootstrap`
+— HCP cannot reach VLAN 1 PostgreSQL.
 
 ### The chicken-and-egg problem
 
