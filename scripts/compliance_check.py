@@ -55,7 +55,7 @@ except ImportError:
 REPO_ROOT: Path = Path(__file__).resolve().parent.parent
 
 REQUIRED_WORKFLOW_FILES = [
-    ".github/workflows/terraform-plan.yml",
+    ".github/workflows/opentofu-plan.yml",
     ".github/workflows/compliance-check.yml",
     ".github/workflows/pre-publication-audit.yml",
 ]
@@ -458,23 +458,24 @@ def check_backend_configured() -> List[CheckResult]:
             _fail(
                 name,
                 "terraform/versions.tf not found",
-                what_is_wrong="versions.tf is missing. State backend (cloud block) must be declared here.",
-                how_to_fix="Create terraform/versions.tf with a terraform { cloud { ... } } block pointing at HCP Terraform.",
-                runbook="See runbook: docs/runbooks/02-bootstrap.md — 'HCP Terraform backend'",
+                what_is_wrong="versions.tf is missing. State backend (pg) must be declared here.",
+                how_to_fix='Create terraform/versions.tf with a terraform { backend "pg" { ... } } block.',
+                runbook="See runbook: docs/runbooks/11-postgresql-state-cutover.md",
             )
         ]
     content = path.read_text()
-    if "cloud" not in content or "McCleaton-Bootstrap" not in content:
+    # Accept either form while reading: backend "pg" { ... } or backend \"pg\"
+    if 'backend "pg"' not in content and "backend \"pg\"" not in content:
         return [
             _fail(
                 name,
-                "versions.tf does not contain HCP Terraform cloud block",
-                what_is_wrong="State is not configured to use HCP Terraform (McCleaton-Bootstrap org).",
-                how_to_fix='Add a terraform { cloud { organization = "McCleaton-Bootstrap" ... } } block to versions.tf.',
-                runbook="See runbook: docs/runbooks/02-bootstrap.md — 'HCP Terraform backend'",
+                'versions.tf does not contain backend "pg"',
+                what_is_wrong="State must use PostgreSQL on pg-lxc-01 (homelab_platform), not HCP cloud.",
+                how_to_fix='Replace cloud {} with backend "pg" { schema_name = "homelab_platform" ... } in versions.tf.',
+                runbook="See runbook: docs/runbooks/11-postgresql-state-cutover.md",
             )
         ]
-    return [_pass(name, "HCP Terraform cloud backend configured in versions.tf")]
+    return [_pass(name, 'PostgreSQL backend "pg" configured in versions.tf')]
 
 
 @structural_registry.register("PLATFORM_BOOTSTRAP_NOT_MANAGED")

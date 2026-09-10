@@ -31,9 +31,9 @@ Do **not** introduce user PATs with manual expiry for Terraform automation. Use 
 |---|---|
 | Run Python tests | `pytest scripts/tests/ -v` |
 | Structural compliance check | `python3 scripts/compliance_check.py --structural-only` |
-| Terraform format check | `terraform -chdir=terraform fmt -check -recursive` |
-| Terraform validate | `terraform -chdir=terraform init -backend=false && terraform -chdir=terraform validate` |
-| Auto-format Terraform | `terraform -chdir=terraform fmt -recursive` |
+| OpenTofu format check | `tofu -chdir=terraform fmt -check -recursive` |
+| OpenTofu validate (no backend) | `tofu -chdir=terraform init -backend=false && tofu -chdir=terraform validate` |
+| Plan / apply (steady state) | GitHub **OpenTofu Plan** on self-hosted runner (`runner-lxc-01`) — PostgreSQL `homelab_platform` (#97). Not HCP remote. |
 | All Makefile targets | `make help` |
 
 ## Non-obvious caveats
