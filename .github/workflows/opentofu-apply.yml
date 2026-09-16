@@ -1,12 +1,16 @@
-# Gated OpenTofu apply on self-hosted runner (VLAN 1) against PostgreSQL state (#97).
+# Gated OpenTofu apply — start from GitHub Actions UI; execute on LAN self-hosted runner.
 #
-# Dispatch-only. Two gates before mutation:
+# Trigger: workflow_dispatch on this repo (Actions → OpenTofu Apply (gated)).
+# Runner:  [self-hosted, linux, homelab] on runner-lxc-01 sibling
+#          (/opt/actions-runner-platform-bootstrap) — PostgreSQL state (#97).
+# Not:     GitHub-hosted ubuntu, Guacamole SSH, or laptop tofu.
+#
+# Two gates before mutation:
 #   1. workflow_dispatch confirm_apply=yes
 #   2. GitHub Environment `opentofu-apply` required reviewers
 #      (Settings → Environments — see runbook 11)
 #
 # Reuses the same Vault AppRole + AWS OIDC + TF_VAR_* wiring as opentofu-plan.yml.
-# Do not run interactive tofu apply on runner-lxc-01 for routine DNS/factory changes.
 
 name: OpenTofu Apply (gated)
 

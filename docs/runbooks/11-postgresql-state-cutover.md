@@ -28,7 +28,11 @@ one repo-scoped runner across repos).
 ## Day-to-day
 
 - PR / push to `main` touching `terraform/**` → **OpenTofu Plan** on `[self-hosted, linux, homelab]`.
-- Apply → **OpenTofu Apply (gated)** (`workflow_dispatch` only). Two gates:
+- Apply → **OpenTofu Apply (gated)** — you start it in the **GitHub Actions UI**
+  (`workflow_dispatch` only). The apply job itself runs on the **LAN sibling self-hosted
+  runner** on `runner-lxc-01` (`/opt/actions-runner-platform-bootstrap`, labels
+  `[self-hosted, linux, homelab]`), same as Plan — **not** GitHub-hosted `ubuntu-latest`,
+  and **not** an interactive Guacamole/SSH shell. Two gates:
   1. Set `confirm_apply=yes` (same pattern as homelab-infra Deploy Workload).
   2. Approve the GitHub Environment **`opentofu-apply`** (required reviewers).
 
@@ -51,10 +55,12 @@ Environment unless you intentionally want Environment-scoped overrides.
 ### Ops steps (apply after a reviewed plan)
 
 1. Confirm latest **OpenTofu Plan** on `main` shows the expected changes (e.g. kb-mcp CNAME).
-2. Actions → **OpenTofu Apply (gated)** → Run workflow → branch `main` → `confirm_apply=yes`.
-3. Open the run → **Review deployments** → approve `opentofu-apply`.
-4. Job runs on the sibling self-hosted runner: Vault AppRole → AWS OIDC → `tofu plan -out`
-   → `tofu apply` saved plan → post-apply plan must be clean.
+2. In GitHub: **Actions → OpenTofu Apply (gated) → Run workflow** → branch `main` →
+   `confirm_apply=yes` → Run. (This is the only operator click path — no SSH.)
+3. Open the run → **Review deployments** → approve Environment `opentofu-apply`.
+4. GitHub schedules the `apply` job onto the sibling runner on VLAN 1; that job does
+   Vault AppRole → AWS OIDC → `tofu plan -out` → `tofu apply` saved plan → post-apply
+   plan must be clean. You watch the run in the Actions UI.
 
 ## Status (2026-09-10)
 
