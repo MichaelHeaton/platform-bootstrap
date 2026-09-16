@@ -34,7 +34,7 @@ Naming convention:
 | `personal/linear-api-token` | Linear API token (MCP / automation) | Workstation — not wired in this repo yet |
 | `personal/notion-api-token` | Notion integration token (MCP / automation) | Workstation — not wired in this repo yet |
 | `personal/cloudflare-api-token` | Cloudflare API token `platform-terraform-dns` — DNS Edit + Zone Read on 5 zones | `homelab-infra/terraform/cloudflare` (mail/DNS) via pipeline SM grant — keep DNS-only |
-| `platform-bootstrap/cloudflare-api-token` | Tunnel substrate token: Zone DNS Edit + Zone Read on `specterrealm.com` **and** Account → Cloudflare Tunnel → Edit | `terraform/cloudflare-tunnel.tf` (kb-mcp CNAME + remote ingress, #1135) — see § Tunnel substrate |
+| `platform-bootstrap/cloudflare-api-token` | Optional SM mirror of Tunnel substrate token (DNS+Tunnel Edit) | Laptop/break-glass TF fallback only — **gated apply uses Vault** `homelab/cloudflare/tunnel-substrate-api` |
 | `personal/curseforge-api-key` | CurseForge legacy upload API key (`X-Api-Token`) | GHA OIDC on `minecraft-modpack-cp-verdant` + `specterrealm-core`; workstation `make upload-cf` |
 | `personal/slack-bot-token` | SpecterRealm Slack bot (`xoxb-…`) — workspace `specterrealmworkspace` | homelab n8n (planned); workstation MCP — see runbook 10 |
 | `personal/discord-bot-token` | Discord bot token (optional) | homelab n8n / family bots — see runbook 10 |
@@ -93,20 +93,32 @@ create a **custom** token:
 | Zone resources | Include → Specific zone → `specterrealm.com` |
 | Account resources | Include → the account that owns the `kb-mcp` tunnel |
 
-```bash
-# On VLAN 1 / after vault login — primary seed for gated apply
-vault kv put homelab/cloudflare/tunnel-substrate-api api_token='<token>'
+If the token is already in SM `platform-bootstrap/cloudflare-api-token` (and has
+**Tunnel Edit**), copy it into Vault from the sibling runner — no laptop Vault
+ritual:
 
-# Optional SM mirror (laptop / TF fallback only)
+1. Ensure SM holds the Tunnel Edit token (`put-secret-value` if still DNS-only).
+2. Actions → **Seed Tunnel substrate Vault** → `confirm_seed=yes` → Run.
+3. Then **OpenTofu Apply (gated)**.
+
+Laptop equivalent:
+
+```bash
 export AWS_PROFILE=platform-bootstrap AWS_REGION=us-west-2
-aws secretsmanager put-secret-value \
-  --secret-id platform-bootstrap/cloudflare-api-token \
-  --secret-string '<token>'
+export VAULT_ADDR=https://vault.specterrealm.com
+# vault login
+bash scripts/seed-cloudflare-tunnel-substrate-from-sm.sh
+```
+
+Manual Vault-only put (when not using SM):
+
+```bash
+vault kv put homelab/cloudflare/tunnel-substrate-api api_token='<token>'
 ```
 
 DNS Edit alone is enough for the CNAME; **Tunnel Edit is required** for remote
-ingress. Without Tunnel Edit, gated apply fails on
-`cloudflare_zero_trust_tunnel_cloudflared_config.kb_mcp`.
+ingress. Without Tunnel Edit, the seed workflow fails closed (does not copy a
+DNS-only token into Vault).
 
 #### Symptom: gated apply 403 / Authentication error (code 10000)
 

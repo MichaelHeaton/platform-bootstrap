@@ -1,0 +1,69 @@
+# One-shot: copy platform-bootstrap/cloudflare-api-token (SM) →
+# homelab/cloudflare/tunnel-substrate-api (Vault) for gated OpenTofu Apply.
+#
+# Sibling runner: AWS OIDC + Vault AppRole (no aws CLI). Operator starts this
+# from Actions UI after creating/rotating a token with Tunnel Edit.
+
+name: Seed Tunnel substrate Vault
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_seed:
+        description: "REQUIRED — set yes to copy SM Cloudflare token into Vault"
+        required: true
+        type: choice
+        options:
+          - "no"
+          - "yes"
+        default: "no"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: seed-tunnel-substrate-vault
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    if: inputs.confirm_seed != 'yes'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block without confirm
+        run: |
+          echo "::error::Set confirm_seed=yes after the SM token has Tunnel Edit (runbook 08)."
+          exit 1
+
+  seed:
+    if: inputs.confirm_seed == 'yes'
+    runs-on: [self-hosted, linux, homelab]
+    env:
+      HOMELAB_VAULT_ADDR: https://vault.specterrealm.com
+      AWS_REGION: ${{ vars.AWS_REGION }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vault AppRole login
+        env:
+          VAULT_APPROLE_ROLE_ID: ${{ secrets.VAULT_APPROLE_ROLE_ID }}
+          VAULT_APPROLE_SECRET_ID: ${{ secrets.VAULT_APPROLE_SECRET_ID }}
+        run: |
+          eval "$(bash scripts/vault-approle-login.sh)"
+          if [[ -z "${VAULT_TOKEN:-}" || -z "${VAULT_ADDR:-}" ]]; then
+            echo "::error::Vault AppRole login produced empty VAULT_TOKEN/VAULT_ADDR"
+            exit 1
+          fi
+          echo "::add-mask::${VAULT_TOKEN}"
+          echo "VAULT_TOKEN=${VAULT_TOKEN}" >> "${GITHUB_ENV}"
+          echo "VAULT_ADDR=${VAULT_ADDR}" >> "${GITHUB_ENV}"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/platform-bootstrap-github-actions
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: SM → Vault seed
+        run: bash scripts/seed-cloudflare-tunnel-substrate-from-sm.sh
