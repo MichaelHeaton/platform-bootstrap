@@ -113,6 +113,20 @@ Bootstrap shortcut (DNS-only, **insufficient for ingress**): you may still copy
 create the CNAME first. Before applying tunnel config, replace that value with a
 token that includes Account → Cloudflare Tunnel → Edit (commands above).
 
+#### Symptom: gated apply 403 / Authentication error (code 10000)
+
+```
+PUT .../cfd_tunnel/<uuid>/configurations: 403 Forbidden
+{"errors":[{"code":10000,"message":"Authentication error"}]}
+```
+
+on `cloudflare_zero_trust_tunnel_cloudflared_config.kb_mcp` means the SM value is
+still DNS-only (or Account resources omit the tunnel’s account). CNAME create can
+succeed; ingress PUT cannot. Rotate with the commands above, then re-run
+**OpenTofu Apply (gated)**. CI also runs
+`scripts/ci-cloudflare-tunnel-token-prereq.sh` before apply so this fails closed
+with the same instructions.
+
 After Zero Trust tunnel create, set GitHub Actions variable
 `TF_VAR_kb_mcp_tunnel_id=<tunnel-uuid>` on **platform-bootstrap** (or use
 `terraform/kb_mcp.auto.tfvars`). Empty UUID keeps the public CNAME and ingress
