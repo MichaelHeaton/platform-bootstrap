@@ -8,8 +8,12 @@ platform-bootstrap is the **platform factory** for personal infrastructure. It p
 foundational AWS identity, GitHub repositories, and HCP Terraform workspaces for domain
 spokes (Cloudflare, Azure, homelab, services) so they can run independently.
 
-It does **not** own domain resources — no Cloudflare DNS records, Azure Entra apps, or
-Proxmox VMs live here.
+It does **not** own most domain resources — no Azure Entra apps or Proxmox VMs live here.
+**Exception (2026-09-16, HomeLab 2.0 / #1135):** Cloudflare **Tunnel substrate** for
+narrow public hostnames (today: `kb-mcp.specterrealm.com` → `*.cfargotunnel.com`) and
+the SM token wiring for that path live in this repo (`terraform/cloudflare-tunnel.tf`).
+Broader personal DNS (mail, etc.) remains in `homelab-infra/terraform/cloudflare/`.
+The k3s `cloudflared` connector is GitOps in `homelab-infra`.
 
 ## Credential strategy
 

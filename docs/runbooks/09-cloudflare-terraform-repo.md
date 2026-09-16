@@ -5,6 +5,12 @@
 **Status (2026-06-06):** Rollout **complete**. HCP workspace `cloudflare` runs plan/apply on VCS;
 23 DNS records imported across 5 zones ([McCleaton/cloudflare#2](https://github.com/McCleaton/cloudflare/pull/2)).
 
+**Status (2026-09):** `McCleaton/cloudflare` consolidated into
+`homelab-infra/terraform/cloudflare/` (#102 Wave D; pg state #259). Mail/DNS stay there.
+**Tunnel substrate** (public `kb-mcp` CNAME → `*.cfargotunnel.com`, #1135) lives in
+**this** repo: `terraform/cloudflare-tunnel.tf` + SM `platform-bootstrap/cloudflare-api-token`
+(see runbook 08). Homelab GitOps owns the `cloudflared` connector.
+
 ---
 
 ## 1. Overview
