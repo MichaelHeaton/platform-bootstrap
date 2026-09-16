@@ -5,18 +5,22 @@
 # DNS Edit alone can create the kb-mcp CNAME; remote ingress PUT needs Tunnel Edit.
 # See docs/runbooks/08-aws-secrets-manager.md § Tunnel substrate.
 #
-# Usage (CI, after AWS OIDC):
+# Usage (CI, after Vault AppRole login — NOT AWS SM):
 #   bash scripts/ci-cloudflare-tunnel-token-prereq.sh
 #
 # Env:
-#   KB_MCP_TUNNEL_ID          — optional; else read terraform/kb_mcp.auto.tfvars
-#   CLOUDFLARE_API_TOKEN_SECRET — default platform-bootstrap/cloudflare-api-token
-#   AWS_REGION                — required when reading SM
-#   SPECTERREALM_ZONE_NAME    — default specterrealm.com
+#   KB_MCP_TUNNEL_ID              — optional; else read terraform/kb_mcp.auto.tfvars
+#   CLOUDFLARE_API_TOKEN          — optional override (tests / already loaded)
+#   VAULT_ADDR + VAULT_TOKEN      — read homelab/cloudflare/tunnel-substrate-api
+#   CLOUDFLARE_TUNNEL_VAULT_PATH  — default cloudflare/tunnel-substrate-api (under homelab/)
+#   SPECTERREALM_ZONE_NAME        — default specterrealm.com
+#
+# Sibling runner has Vault AppRole (same as tofu-pg-init / HCP migrate). It does
+# not need aws CLI or boto3 for this check.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SECRET_ID="${CLOUDFLARE_API_TOKEN_SECRET:-platform-bootstrap/cloudflare-api-token}"
+VAULT_KV_PATH="${CLOUDFLARE_TUNNEL_VAULT_PATH:-cloudflare/tunnel-substrate-api}"
 ZONE_NAME="${SPECTERREALM_ZONE_NAME:-specterrealm.com}"
 
 tunnel_id="${KB_MCP_TUNNEL_ID:-}"
@@ -35,35 +39,46 @@ if [[ -z "${tunnel_id}" ]]; then
   exit 0
 fi
 
-read_secret() {
-  if command -v aws >/dev/null 2>&1; then
-    aws secretsmanager get-secret-value \
-      --secret-id "${SECRET_ID}" \
-      --query SecretString \
-      --output text
+read_token() {
+  if [[ -n "${CLOUDFLARE_API_TOKEN:-}" ]]; then
+    printf '%s' "${CLOUDFLARE_API_TOKEN}"
     return
   fi
-  python3 - <<'PY' "${SECRET_ID}"
-import os, sys
-try:
-    import boto3
-except ImportError as e:
-    print(
-        "aws CLI and boto3 both missing — cannot read SM for tunnel token prereq",
-        file=sys.stderr,
-    )
-    raise SystemExit(2) from e
-secret_id = sys.argv[1]
-region = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-west-2"
-client = boto3.client("secretsmanager", region_name=region)
-print(client.get_secret_value(SecretId=secret_id)["SecretString"].strip())
-PY
+  : "${VAULT_ADDR:?VAULT_ADDR required (Vault AppRole login first)}"
+  : "${VAULT_TOKEN:?VAULT_TOKEN required (Vault AppRole login first)}"
+
+  tok="$(curl -sfS \
+    -H "X-Vault-Token: ${VAULT_TOKEN}" \
+    "${VAULT_ADDR%/}/v1/homelab/data/${VAULT_KV_PATH}" \
+    | jq -r '.data.data.api_token // empty')"
+  if [[ -z "${tok}" ]]; then
+    cat >&2 <<EOF
+::error::Vault homelab/${VAULT_KV_PATH} missing api_token
+
+Seed (same pattern as homelab/hcp/tfe-api-token — runner uses Vault, not SM):
+  vault kv put homelab/${VAULT_KV_PATH} api_token='<Cloudflare token with Tunnel Edit>'
+
+Token scopes: Zone DNS Edit + Zone Read on specterrealm.com AND
+Account → Cloudflare Tunnel → Edit. See runbook 08.
+Optional: also keep SM platform-bootstrap/cloudflare-api-token in sync for
+laptop/SM fallback; gated apply loads Vault → TF_VAR_cloudflare_api_token.
+EOF
+    exit 1
+  fi
+  printf '%s' "${tok}"
 }
 
-token="$(read_secret | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+token="$(read_token | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
 if [[ -z "${token}" ]]; then
-  echo "::error::SM ${SECRET_ID} is empty — seed Tunnel substrate token (runbook 08)"
+  echo "::error::Cloudflare API token empty after Vault/env read"
   exit 1
+fi
+
+# Export for later workflow steps (tofu provider via TF_VAR / CLOUDFLARE_API_TOKEN).
+if [[ -n "${GITHUB_ENV:-}" ]]; then
+  echo "::add-mask::${token}"
+  echo "CLOUDFLARE_API_TOKEN=${token}" >> "${GITHUB_ENV}"
+  echo "TF_VAR_cloudflare_api_token=${token}" >> "${GITHUB_ENV}"
 fi
 
 auth_hdr=(-H "Authorization: Bearer ${token}" -H "Content-Type: application/json")
@@ -71,7 +86,7 @@ auth_hdr=(-H "Authorization: Bearer ${token}" -H "Content-Type: application/json
 verify_json="$(curl -sfS "${auth_hdr[@]}" \
   "https://api.cloudflare.com/client/v4/user/tokens/verify" || true)"
 if [[ -z "${verify_json}" ]] || ! echo "${verify_json}" | jq -e '.success == true' >/dev/null 2>&1; then
-  echo "::error::Cloudflare token verify failed for SM ${SECRET_ID} — rotate/seed per runbook 08"
+  echo "::error::Cloudflare token verify failed for Vault homelab/${VAULT_KV_PATH} — rotate/seed per runbook 08"
   echo "${verify_json:-"(empty response)"}" >&2
   exit 1
 fi
@@ -80,13 +95,12 @@ zones_json="$(curl -sfS "${auth_hdr[@]}" \
   "https://api.cloudflare.com/client/v4/zones?name=${ZONE_NAME}" || true)"
 account_id="$(echo "${zones_json:-}" | jq -r '.result[0].account.id // empty')"
 if [[ -z "${account_id}" ]]; then
-  echo "::error::Cannot resolve Cloudflare account for zone ${ZONE_NAME} with SM ${SECRET_ID}"
+  echo "::error::Cannot resolve Cloudflare account for zone ${ZONE_NAME}"
   echo "Token needs Zone → Zone → Read on ${ZONE_NAME} (runbook 08)." >&2
   echo "${zones_json:-"(empty response)"}" >&2
   exit 1
 fi
 
-# GET configurations — 403/10000 means DNS-only token (or wrong account scope).
 http_code="$(curl -sS -o /tmp/cf-tunnel-config.json -w '%{http_code}' "${auth_hdr[@]}" \
   "https://api.cloudflare.com/client/v4/accounts/${account_id}/cfd_tunnel/${tunnel_id}/configurations" \
   || true)"
@@ -102,17 +116,15 @@ echo "${body}" >&2
 if [[ "${http_code}" == "403" ]] || echo "${body}" | grep -q '"code":10000'; then
   cat >&2 <<EOF
 
-SM ${SECRET_ID} can authenticate but lacks Account → Cloudflare Tunnel → Edit
-(or Account resources do not include this account). DNS Edit alone creates the
-CNAME; remote ingress PUT needs Tunnel Edit.
+Vault homelab/${VAULT_KV_PATH} authenticates but lacks Account → Cloudflare Tunnel → Edit
+(or Account resources omit this account). DNS Edit alone creates the CNAME;
+remote ingress PUT needs Tunnel Edit.
 
 Fix (operator, once):
   1. dash.cloudflare.com/profile/api-tokens → custom token
      Zone DNS Edit + Zone Read on specterrealm.com
      Account → Cloudflare Tunnel → Edit (account that owns kb-mcp)
-  2. aws secretsmanager put-secret-value \\
-       --secret-id platform-bootstrap/cloudflare-api-token \\
-       --secret-string '<new-token>'
+  2. vault kv put homelab/${VAULT_KV_PATH} api_token='<new-token>'
   3. Re-run Actions → OpenTofu Apply (gated) → confirm_apply=yes
 
 Do not widen personal/cloudflare-api-token. Details: docs/runbooks/08-aws-secrets-manager.md

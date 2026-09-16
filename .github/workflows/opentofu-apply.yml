@@ -85,6 +85,10 @@ jobs:
           echo "VAULT_TOKEN=${VAULT_TOKEN}" >> "${GITHUB_ENV}"
           echo "VAULT_ADDR=${VAULT_ADDR}" >> "${GITHUB_ENV}"
 
+      # Vault (not SM) — same pattern as HCP migrate-state token load.
+      - name: Cloudflare Tunnel token prereq
+        run: bash scripts/ci-cloudflare-tunnel-token-prereq.sh
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -98,10 +102,6 @@ jobs:
             exit 1
           fi
           tofu version
-
-      # Fail closed on DNS-only SM token before plan/apply (403/10000 on tunnel config).
-      - name: Cloudflare Tunnel token prereq
-        run: bash scripts/ci-cloudflare-tunnel-token-prereq.sh
 
       - name: tofu init (pg)
         run: bash scripts/tofu-pg-init.sh

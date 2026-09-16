@@ -307,15 +307,27 @@ variable "specterrealm_repositories" {
 
 # ── Cloudflare Tunnel substrate (kb-mcp off-LAN — homelab-infra #1135) ────────
 
+variable "cloudflare_api_token" {
+  type        = string
+  description = <<-EOT
+    Cloudflare API token for Tunnel substrate (Zone DNS Edit + Zone Read on
+    specterrealm.com + Account → Cloudflare Tunnel → Edit). Prefer injecting
+    via TF_VAR_cloudflare_api_token from Vault
+    (homelab/cloudflare/tunnel-substrate-api) on the sibling runner — see
+    scripts/ci-cloudflare-tunnel-token-prereq.sh. Empty falls back to SM
+    cloudflare_api_token_secret_name when kb_mcp_tunnel_id is set.
+  EOT
+  default     = ""
+  sensitive   = true
+}
+
 variable "cloudflare_api_token_secret_name" {
   type        = string
   description = <<-EOT
-    SM secret with Cloudflare API token for Tunnel substrate: Zone:DNS:Edit +
-    Zone:Read on specterrealm.com, plus Account → Cloudflare Tunnel → Edit
-    (required for cloudflare_zero_trust_tunnel_cloudflared_config). Prefer
-    platform-bootstrap/cloudflare-api-token so the GHA role (platform-bootstrap/*
-    only) can read it without widening IAM to personal/*. Seed/rotate per
-    docs/runbooks/08-aws-secrets-manager.md § Tunnel substrate.
+    Optional SM fallback when cloudflare_api_token is empty: Zone:DNS:Edit +
+    Zone:Read on specterrealm.com, plus Account → Cloudflare Tunnel → Edit.
+    Default platform-bootstrap/cloudflare-api-token. Gated apply prefers Vault
+    (runbook 08); SM is laptop/break-glass.
   EOT
   default     = "platform-bootstrap/cloudflare-api-token"
 }

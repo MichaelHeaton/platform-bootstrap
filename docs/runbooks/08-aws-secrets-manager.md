@@ -63,7 +63,7 @@ aws secretsmanager describe-secret --secret-id platform-bootstrap/cloudflare-api
   || echo "platform-bootstrap/cloudflare-api-token — seed for Tunnel substrate (homelab-infra #1135)"
 ```
 
-### Tunnel substrate SM token (kb-mcp / homelab-infra #1135)
+### Tunnel substrate token (kb-mcp / homelab-infra #1135)
 
 Public Tunnel **DNS CNAME** and **remote ingress** are applied from **this** repo
 (`terraform/cloudflare-tunnel.tf`). Ingress uses
@@ -71,47 +71,42 @@ Public Tunnel **DNS CNAME** and **remote ingress** are applied from **this** rep
 catch-all 404) and does **not** create a second DNS record — the TF CNAME stays
 authoritative.
 
-The `platform-bootstrap-github-actions` role only reads `platform-bootstrap/*`.
-**Do not** widen `personal/cloudflare-api-token` (mail/DNS stays DNS-only). Instead
-seed a substrate token under `platform-bootstrap/cloudflare-api-token` with both
-DNS and Tunnel scopes.
+**Sibling runner path (preferred):** Vault AppRole →
+`homelab/cloudflare/tunnel-substrate-api` (`api_token`) →
+`scripts/ci-cloudflare-tunnel-token-prereq.sh` → `TF_VAR_cloudflare_api_token`.
+Same pattern as `homelab/hcp/tfe-api-token` for migrate-state. The runner does
+**not** need `aws` CLI / boto3 for this token.
 
-#### One-time: create or rotate the substrate token
+**Do not** widen `personal/cloudflare-api-token` (mail/DNS stays DNS-only).
+Optional SM `platform-bootstrap/cloudflare-api-token` remains a laptop/break-glass
+fallback when `TF_VAR_cloudflare_api_token` is unset.
+
+#### One-time: create token + seed Vault
 
 At [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens)
-create a **custom** token (or edit the existing substrate token):
+create a **custom** token:
 
 | Setting | Value |
 |---|---|
-| Token name | `platform-terraform-tunnel-substrate` (or reuse prior substrate name) |
+| Token name | `platform-terraform-tunnel-substrate` |
 | Permissions | Zone → DNS → **Edit**; Zone → Zone → **Read**; Account → **Cloudflare Tunnel** → **Edit** |
 | Zone resources | Include → Specific zone → `specterrealm.com` |
 | Account resources | Include → the account that owns the `kb-mcp` tunnel |
 
-DNS Edit alone is enough for the CNAME; **Tunnel Edit is required** for remote
-ingress config. Without Tunnel Edit, gated apply fails on
-`cloudflare_zero_trust_tunnel_cloudflared_config.kb_mcp`.
-
 ```bash
+# On VLAN 1 / after vault login — primary seed for gated apply
+vault kv put homelab/cloudflare/tunnel-substrate-api api_token='<token>'
+
+# Optional SM mirror (laptop / TF fallback only)
 export AWS_PROFILE=platform-bootstrap AWS_REGION=us-west-2
-read -s "?Cloudflare Tunnel substrate API token: " CF_TUNNEL_TOKEN; echo
-if aws secretsmanager describe-secret --secret-id platform-bootstrap/cloudflare-api-token >/dev/null 2>&1; then
-  aws secretsmanager put-secret-value \
-    --secret-id platform-bootstrap/cloudflare-api-token \
-    --secret-string "${CF_TUNNEL_TOKEN}"
-else
-  aws secretsmanager create-secret \
-    --name platform-bootstrap/cloudflare-api-token \
-    --description "Cloudflare DNS+Tunnel token for kb-mcp substrate (not a copy of personal/ DNS-only)" \
-    --secret-string "${CF_TUNNEL_TOKEN}"
-fi
-unset CF_TUNNEL_TOKEN
+aws secretsmanager put-secret-value \
+  --secret-id platform-bootstrap/cloudflare-api-token \
+  --secret-string '<token>'
 ```
 
-Bootstrap shortcut (DNS-only, **insufficient for ingress**): you may still copy
-`personal/cloudflare-api-token` into `platform-bootstrap/cloudflare-api-token` to
-create the CNAME first. Before applying tunnel config, replace that value with a
-token that includes Account → Cloudflare Tunnel → Edit (commands above).
+DNS Edit alone is enough for the CNAME; **Tunnel Edit is required** for remote
+ingress. Without Tunnel Edit, gated apply fails on
+`cloudflare_zero_trust_tunnel_cloudflared_config.kb_mcp`.
 
 #### Symptom: gated apply 403 / Authentication error (code 10000)
 
@@ -120,12 +115,9 @@ PUT .../cfd_tunnel/<uuid>/configurations: 403 Forbidden
 {"errors":[{"code":10000,"message":"Authentication error"}]}
 ```
 
-on `cloudflare_zero_trust_tunnel_cloudflared_config.kb_mcp` means the SM value is
-still DNS-only (or Account resources omit the tunnel’s account). CNAME create can
-succeed; ingress PUT cannot. Rotate with the commands above, then re-run
-**OpenTofu Apply (gated)**. CI also runs
-`scripts/ci-cloudflare-tunnel-token-prereq.sh` before apply so this fails closed
-with the same instructions.
+means the token in Vault (or SM fallback) is still DNS-only. Rotate with the
+commands above, then re-run **OpenTofu Apply (gated)**. CI runs
+`scripts/ci-cloudflare-tunnel-token-prereq.sh` (Vault read) before apply.
 
 After Zero Trust tunnel create, set GitHub Actions variable
 `TF_VAR_kb_mcp_tunnel_id=<tunnel-uuid>` on **platform-bootstrap** (or use
