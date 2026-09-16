@@ -7,6 +7,10 @@ Usage:
 
 Prints the secret string to stdout (no trailing commentary). Exit 1 on failure.
 Sibling runner has no aws CLI / boto3 — OIDC env from configure-aws-credentials.
+
+SignedHeaders / CanonicalHeaders must be lexicographically sorted by header
+name (AWS SigV4). Appending x-amz-security-token after x-amz-target breaks
+OIDC temporary credentials (InvalidSignatureException).
 """
 from __future__ import annotations
 
@@ -18,6 +22,84 @@ import sys
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
+
+
+def _sign(key: bytes, msg: str) -> bytes:
+    return hmac.new(key, msg.encode("utf-8"), hashlib.sha256).digest()
+
+
+def build_sigv4_headers(
+    *,
+    method: str,
+    host: str,
+    region: str,
+    service: str,
+    amz_target: str,
+    content_type: str,
+    payload: bytes,
+    access_key: str,
+    secret_key: str,
+    session_token: str,
+    amz_date: str,
+    date_stamp: str,
+) -> dict[str, str]:
+    """Return request headers including Authorization (SigV4)."""
+    payload_hash = hashlib.sha256(payload).hexdigest()
+    credential_scope = f"{date_stamp}/{region}/{service}/aws4_request"
+
+    # Header names must be sorted lexicographically for CanonicalHeaders /
+    # SignedHeaders — including x-amz-security-token when present.
+    header_map: dict[str, str] = {
+        "content-type": content_type,
+        "host": host,
+        "x-amz-date": amz_date,
+        "x-amz-target": amz_target,
+    }
+    if session_token:
+        header_map["x-amz-security-token"] = session_token
+
+    signed_header_names = sorted(header_map)
+    canonical_headers = "".join(f"{k}:{header_map[k]}\n" for k in signed_header_names)
+    signed_headers = ";".join(signed_header_names)
+
+    canonical_request = "\n".join(
+        [method, "/", "", canonical_headers, signed_headers, payload_hash]
+    )
+    string_to_sign = "\n".join(
+        [
+            "AWS4-HMAC-SHA256",
+            amz_date,
+            credential_scope,
+            hashlib.sha256(canonical_request.encode("utf-8")).hexdigest(),
+        ]
+    )
+
+    k_date = _sign(("AWS4" + secret_key).encode("utf-8"), date_stamp)
+    k_region = _sign(k_date, region)
+    k_service = _sign(k_region, service)
+    k_signing = _sign(k_service, "aws4_request")
+    signature = hmac.new(
+        k_signing, string_to_sign.encode("utf-8"), hashlib.sha256
+    ).hexdigest()
+
+    authorization = (
+        "AWS4-HMAC-SHA256 "
+        f"Credential={access_key}/{credential_scope}, "
+        f"SignedHeaders={signed_headers}, "
+        f"Signature={signature}"
+    )
+
+    # Wire headers use HTTP casing AWS expects on the wire.
+    out = {
+        "Content-Type": content_type,
+        "Host": host,
+        "X-Amz-Date": amz_date,
+        "X-Amz-Target": amz_target,
+        "Authorization": authorization,
+    }
+    if session_token:
+        out["X-Amz-Security-Token"] = session_token
+    return out
 
 
 def main() -> int:
@@ -46,57 +128,21 @@ def main() -> int:
     now = datetime.now(timezone.utc)
     amz_date = now.strftime("%Y%m%dT%H%M%SZ")
     date_stamp = now.strftime("%Y%m%d")
-    credential_scope = f"{date_stamp}/{region}/{service}/aws4_request"
 
-    payload_hash = hashlib.sha256(payload).hexdigest()
-    canonical_headers = (
-        f"content-type:{content_type}\n"
-        f"host:{host}\n"
-        f"x-amz-date:{amz_date}\n"
-        f"x-amz-target:{amz_target}\n"
+    headers = build_sigv4_headers(
+        method="POST",
+        host=host,
+        region=region,
+        service=service,
+        amz_target=amz_target,
+        content_type=content_type,
+        payload=payload,
+        access_key=access_key,
+        secret_key=secret_key,
+        session_token=session_token,
+        amz_date=amz_date,
+        date_stamp=date_stamp,
     )
-    signed_headers = "content-type;host;x-amz-date;x-amz-target"
-    if session_token:
-        canonical_headers += f"x-amz-security-token:{session_token}\n"
-        signed_headers += ";x-amz-security-token"
-
-    canonical_request = "\n".join(
-        ["POST", "/", "", canonical_headers, signed_headers, payload_hash]
-    )
-    string_to_sign = "\n".join(
-        [
-            "AWS4-HMAC-SHA256",
-            amz_date,
-            credential_scope,
-            hashlib.sha256(canonical_request.encode("utf-8")).hexdigest(),
-        ]
-    )
-
-    def _sign(key: bytes, msg: str) -> bytes:
-        return hmac.new(key, msg.encode("utf-8"), hashlib.sha256).digest()
-
-    k_date = _sign(("AWS4" + secret_key).encode("utf-8"), date_stamp)
-    k_region = _sign(k_date, region)
-    k_service = _sign(k_region, service)
-    k_signing = _sign(k_service, "aws4_request")
-    signature = hmac.new(
-        k_signing, string_to_sign.encode("utf-8"), hashlib.sha256
-    ).hexdigest()
-
-    authorization = (
-        "AWS4-HMAC-SHA256 "
-        f"Credential={access_key}/{credential_scope}, "
-        f"SignedHeaders={signed_headers}, "
-        f"Signature={signature}"
-    )
-    headers = {
-        "Content-Type": content_type,
-        "X-Amz-Date": amz_date,
-        "X-Amz-Target": amz_target,
-        "Authorization": authorization,
-    }
-    if session_token:
-        headers["X-Amz-Security-Token"] = session_token
 
     req = urllib.request.Request(
         f"https://{host}/",
