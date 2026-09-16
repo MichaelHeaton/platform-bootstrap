@@ -33,8 +33,8 @@ Naming convention:
 | `platform-bootstrap/tfe-api-token` | HCP org API token (workspace factory + `tfe` provider) | `platform-bootstrap` Terraform reads SM at plan time; fans out to spoke `TF_TOKEN_app_terraform_io` |
 | `personal/linear-api-token` | Linear API token (MCP / automation) | Workstation — not wired in this repo yet |
 | `personal/notion-api-token` | Notion integration token (MCP / automation) | Workstation — not wired in this repo yet |
-| `personal/cloudflare-api-token` | Cloudflare API token `platform-terraform-dns` — DNS Edit + Zone Read on 5 zones | `homelab-infra/terraform/cloudflare` (mail/DNS) via pipeline SM grant; also source for the Tunnel substrate copy below |
-| `platform-bootstrap/cloudflare-api-token` | Same DNS capability, copied under `platform-bootstrap/` so GHA plan can read it | `terraform/cloudflare-tunnel.tf` (kb-mcp Tunnel CNAME, #1135) — see § Tunnel substrate |
+| `personal/cloudflare-api-token` | Cloudflare API token `platform-terraform-dns` — DNS Edit + Zone Read on 5 zones | `homelab-infra/terraform/cloudflare` (mail/DNS) via pipeline SM grant — keep DNS-only |
+| `platform-bootstrap/cloudflare-api-token` | Tunnel substrate token: Zone DNS Edit + Zone Read on `specterrealm.com` **and** Account → Cloudflare Tunnel → Edit | `terraform/cloudflare-tunnel.tf` (kb-mcp CNAME + remote ingress, #1135) — see § Tunnel substrate |
 | `personal/curseforge-api-key` | CurseForge legacy upload API key (`X-Api-Token`) | GHA OIDC on `minecraft-modpack-cp-verdant` + `specterrealm-core`; workstation `make upload-cf` |
 | `personal/slack-bot-token` | SpecterRealm Slack bot (`xoxb-…`) — workspace `specterrealmworkspace` | homelab n8n (planned); workstation MCP — see runbook 10 |
 | `personal/discord-bot-token` | Discord bot token (optional) | homelab n8n / family bots — see runbook 10 |
@@ -63,33 +63,63 @@ aws secretsmanager describe-secret --secret-id platform-bootstrap/cloudflare-api
   || echo "platform-bootstrap/cloudflare-api-token — seed for Tunnel substrate (homelab-infra #1135)"
 ```
 
-### Tunnel substrate SM copy (kb-mcp / homelab-infra #1135)
+### Tunnel substrate SM token (kb-mcp / homelab-infra #1135)
 
-Public Tunnel DNS is applied from **this** repo (`terraform/cloudflare-tunnel.tf`). The
-`platform-bootstrap-github-actions` role only reads `platform-bootstrap/*`, so copy the
-DNS token once (after `personal/cloudflare-api-token` exists):
+Public Tunnel **DNS CNAME** and **remote ingress** are applied from **this** repo
+(`terraform/cloudflare-tunnel.tf`). Ingress uses
+`cloudflare_zero_trust_tunnel_cloudflared_config` (hostname → in-cluster service +
+catch-all 404) and does **not** create a second DNS record — the TF CNAME stays
+authoritative.
+
+The `platform-bootstrap-github-actions` role only reads `platform-bootstrap/*`.
+**Do not** widen `personal/cloudflare-api-token` (mail/DNS stays DNS-only). Instead
+seed a substrate token under `platform-bootstrap/cloudflare-api-token` with both
+DNS and Tunnel scopes.
+
+#### One-time: create or rotate the substrate token
+
+At [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens)
+create a **custom** token (or edit the existing substrate token):
+
+| Setting | Value |
+|---|---|
+| Token name | `platform-terraform-tunnel-substrate` (or reuse prior substrate name) |
+| Permissions | Zone → DNS → **Edit**; Zone → Zone → **Read**; Account → **Cloudflare Tunnel** → **Edit** |
+| Zone resources | Include → Specific zone → `specterrealm.com` |
+| Account resources | Include → the account that owns the `kb-mcp` tunnel |
+
+DNS Edit alone is enough for the CNAME; **Tunnel Edit is required** for remote
+ingress config. Without Tunnel Edit, gated apply fails on
+`cloudflare_zero_trust_tunnel_cloudflared_config.kb_mcp`.
 
 ```bash
 export AWS_PROFILE=platform-bootstrap AWS_REGION=us-west-2
-TOKEN="$(aws secretsmanager get-secret-value \
-  --secret-id personal/cloudflare-api-token \
-  --query SecretString --output text)"
+read -s "?Cloudflare Tunnel substrate API token: " CF_TUNNEL_TOKEN; echo
 if aws secretsmanager describe-secret --secret-id platform-bootstrap/cloudflare-api-token >/dev/null 2>&1; then
   aws secretsmanager put-secret-value \
     --secret-id platform-bootstrap/cloudflare-api-token \
-    --secret-string "${TOKEN}"
+    --secret-string "${CF_TUNNEL_TOKEN}"
 else
   aws secretsmanager create-secret \
     --name platform-bootstrap/cloudflare-api-token \
-    --description "Cloudflare DNS token for Tunnel substrate (copy of personal/cloudflare-api-token)" \
-    --secret-string "${TOKEN}"
+    --description "Cloudflare DNS+Tunnel token for kb-mcp substrate (not a copy of personal/ DNS-only)" \
+    --secret-string "${CF_TUNNEL_TOKEN}"
 fi
-unset TOKEN
+unset CF_TUNNEL_TOKEN
 ```
 
+Bootstrap shortcut (DNS-only, **insufficient for ingress**): you may still copy
+`personal/cloudflare-api-token` into `platform-bootstrap/cloudflare-api-token` to
+create the CNAME first. Before applying tunnel config, replace that value with a
+token that includes Account → Cloudflare Tunnel → Edit (commands above).
+
 After Zero Trust tunnel create, set GitHub Actions variable
-`TF_VAR_kb_mcp_tunnel_id=<tunnel-uuid>` on **platform-bootstrap**. Empty UUID keeps
-the public CNAME absent on purpose.
+`TF_VAR_kb_mcp_tunnel_id=<tunnel-uuid>` on **platform-bootstrap** (or use
+`terraform/kb_mcp.auto.tfvars`). Empty UUID keeps the public CNAME and ingress
+absent on purpose.
+
+Apply path: merge PR → Actions → **OpenTofu Apply (gated)** on `main` with
+`confirm_apply=yes` → approve Environment `opentofu-apply`. No laptop curl.
 
 Check PEM length without printing the value:
 
@@ -287,17 +317,18 @@ make upload-cf   # minecraft-modpack-cp-verdant
 
 #### Optional: additional Cloudflare tokens (later)
 
-The DNS token is enough for zone DNS Edit (mail records in `homelab-infra` and the Tunnel
-CNAME substrate in this repo). Add separate tokens only when a consumer needs capabilities
-DNS cannot provide:
+Keep `personal/cloudflare-api-token` DNS-only (mail/DNS in `homelab-infra`). Tunnel
+**remote ingress** for kb-mcp uses the separate substrate secret
+`platform-bootstrap/cloudflare-api-token` (DNS + Tunnel Edit) — see § Tunnel substrate
+above. Add further tokens only when a consumer needs capabilities those do not provide:
 
 | Token purpose | Permissions (typical) | Unlocks |
 |---|---|---|
-| **Tunnel** (`platform-terraform-tunnel`) | Account → Cloudflare Tunnel → Edit; Account → Account Settings → Read | Future TF for tunnel *create* / Zero Trust config (today: dashboard create + connector token in Vault) |
+| **Tunnel create** (`platform-terraform-tunnel`) | Account → Cloudflare Tunnel → Edit; Account → Account Settings → Read | Future TF for tunnel *create* (today: dashboard create + connector token in Vault; ingress already in `cloudflare-tunnel.tf`) |
 | **R2** (`platform-terraform-r2`) | Account → Workers R2 Storage → Edit | Terraform for R2 buckets, lifecycle rules, CORS — Memex file storage, static assets with no egress fees |
 
-Store each as its own SM secret (e.g. `personal/cloudflare-tunnel-api-token`) with a dedicated
-IAM grant on the consuming pipeline role. Do not widen the DNS token.
+Store each as its own SM secret (e.g. `personal/cloudflare-r2-api-token`) with a dedicated
+IAM grant on the consuming pipeline role. Do not widen the personal DNS token.
 
 ---
 

@@ -310,10 +310,12 @@ variable "specterrealm_repositories" {
 variable "cloudflare_api_token_secret_name" {
   type        = string
   description = <<-EOT
-    SM secret with Cloudflare API token (Zone:DNS:Edit + Zone:Read on specterrealm.com).
-    Prefer platform-bootstrap/cloudflare-api-token so the GHA role (platform-bootstrap/*
-    only) can read it without widening IAM to personal/*. Seed by copying
-    personal/cloudflare-api-token once — see docs/runbooks/08-aws-secrets-manager.md.
+    SM secret with Cloudflare API token for Tunnel substrate: Zone:DNS:Edit +
+    Zone:Read on specterrealm.com, plus Account → Cloudflare Tunnel → Edit
+    (required for cloudflare_zero_trust_tunnel_cloudflared_config). Prefer
+    platform-bootstrap/cloudflare-api-token so the GHA role (platform-bootstrap/*
+    only) can read it without widening IAM to personal/*. Seed/rotate per
+    docs/runbooks/08-aws-secrets-manager.md § Tunnel substrate.
   EOT
   default     = "platform-bootstrap/cloudflare-api-token"
 }
@@ -321,9 +323,10 @@ variable "cloudflare_api_token_secret_name" {
 variable "kb_mcp_tunnel_id" {
   type        = string
   description = <<-EOT
-    Cloudflare Tunnel UUID for public kb-mcp.specterrealm.com CNAME (homelab-infra #1135).
-    Empty skips the DNS record until the tunnel exists. UUID is public (CNAME target
-    is <uuid>.cfargotunnel.com). Set via TF_VAR_kb_mcp_tunnel_id (Actions variable)
+    Cloudflare Tunnel UUID for public kb-mcp.specterrealm.com CNAME + remote
+    ingress (homelab-infra #1135). Empty skips DNS and tunnel config until the
+    tunnel exists. UUID is public (CNAME target is <uuid>.cfargotunnel.com).
+    Set via TF_VAR_kb_mcp_tunnel_id (Actions variable) or kb_mcp.auto.tfvars
     after Zero Trust tunnel create. Never a private IP.
   EOT
   default     = ""
