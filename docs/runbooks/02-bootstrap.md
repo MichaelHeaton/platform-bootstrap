@@ -30,7 +30,7 @@ Pull request → GitHub Actions
                  └── Compliance Check (structural + optional AWS read-only)
 
 Merge to main → GitHub Actions OpenTofu Plan again
-                 └── apply: break-glass / future gated apply workflow
+                 └── apply: OpenTofu Apply (gated) — confirm_apply=yes + Environment opentofu-apply
 ```
 
 Do **not** re-attach VCS or turn on HCP auto-apply for `McCleaton-Bootstrap/platform-bootstrap`
