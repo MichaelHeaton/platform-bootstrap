@@ -9,10 +9,13 @@
 #   bash scripts/ci-cloudflare-tunnel-token-prereq.sh
 #
 # Env:
-#   KB_MCP_TUNNEL_ID          — optional; else read terraform/kb_mcp.auto.tfvars
+#   KB_MCP_TUNNEL_ID            — optional; else read terraform/kb_mcp.auto.tfvars
 #   CLOUDFLARE_API_TOKEN_SECRET — default platform-bootstrap/cloudflare-api-token
-#   AWS_REGION                — required when reading SM
-#   SPECTERREALM_ZONE_NAME    — default specterrealm.com
+#   CLOUDFLARE_API_TOKEN        — optional override (skips SM; tests / break-glass)
+#   AWS_REGION + AWS_* OIDC     — SM read via stdlib SigV4 (no aws CLI / boto3)
+#   SPECTERREALM_ZONE_NAME      — default specterrealm.com
+#
+# Sibling runner note: no aws CLI / boto3 — SM is read with Python stdlib + OIDC env.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -36,6 +39,11 @@ if [[ -z "${tunnel_id}" ]]; then
 fi
 
 read_secret() {
+  if [[ -n "${CLOUDFLARE_API_TOKEN:-}" ]]; then
+    printf '%s' "${CLOUDFLARE_API_TOKEN}"
+    return
+  fi
+  # Prefer aws CLI when present (laptop); else stdlib SigV4 (sibling runner).
   if command -v aws >/dev/null 2>&1; then
     aws secretsmanager get-secret-value \
       --secret-id "${SECRET_ID}" \
@@ -44,19 +52,119 @@ read_secret() {
     return
   fi
   python3 - <<'PY' "${SECRET_ID}"
-import os, sys
-try:
-    import boto3
-except ImportError as e:
-    print(
-        "aws CLI and boto3 both missing — cannot read SM for tunnel token prereq",
-        file=sys.stderr,
-    )
-    raise SystemExit(2) from e
+"""GetSecretValue via AWS SigV4 — stdlib only (no boto3)."""
+from __future__ import annotations
+
+import hashlib
+import hmac
+import json
+import os
+import sys
+import urllib.error
+import urllib.request
+from datetime import datetime, timezone
+
 secret_id = sys.argv[1]
 region = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-west-2"
-client = boto3.client("secretsmanager", region_name=region)
-print(client.get_secret_value(SecretId=secret_id)["SecretString"].strip())
+access_key = os.environ.get("AWS_ACCESS_KEY_ID", "")
+secret_key = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
+session_token = os.environ.get("AWS_SESSION_TOKEN", "")
+if not access_key or not secret_key:
+    print(
+        "AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY required for SM read "
+        "(run after configure-aws-credentials)",
+        file=sys.stderr,
+    )
+    raise SystemExit(2)
+
+service = "secretsmanager"
+host = f"secretsmanager.{region}.amazonaws.com"
+amz_target = "secretsmanager.GetSecretValue"
+payload = json.dumps({"SecretId": secret_id}).encode("utf-8")
+content_type = "application/x-amz-json-1.1"
+
+now = datetime.now(timezone.utc)
+amz_date = now.strftime("%Y%m%dT%H%M%SZ")
+date_stamp = now.strftime("%Y%m%d")
+credential_scope = f"{date_stamp}/{region}/{service}/aws4_request"
+
+payload_hash = hashlib.sha256(payload).hexdigest()
+canonical_headers = (
+    f"content-type:{content_type}\n"
+    f"host:{host}\n"
+    f"x-amz-date:{amz_date}\n"
+    f"x-amz-target:{amz_target}\n"
+)
+signed_headers = "content-type;host;x-amz-date;x-amz-target"
+if session_token:
+    canonical_headers += f"x-amz-security-token:{session_token}\n"
+    signed_headers += ";x-amz-security-token"
+
+canonical_request = "\n".join(
+    [
+        "POST",
+        "/",
+        "",
+        canonical_headers,
+        signed_headers,
+        payload_hash,
+    ]
+)
+string_to_sign = "\n".join(
+    [
+        "AWS4-HMAC-SHA256",
+        amz_date,
+        credential_scope,
+        hashlib.sha256(canonical_request.encode("utf-8")).hexdigest(),
+    ]
+)
+
+
+def _sign(key: bytes, msg: str) -> bytes:
+    return hmac.new(key, msg.encode("utf-8"), hashlib.sha256).digest()
+
+
+k_date = _sign(("AWS4" + secret_key).encode("utf-8"), date_stamp)
+k_region = _sign(k_date, region)
+k_service = _sign(k_region, service)
+k_signing = _sign(k_service, "aws4_request")
+signature = hmac.new(k_signing, string_to_sign.encode("utf-8"), hashlib.sha256).hexdigest()
+
+authorization = (
+    "AWS4-HMAC-SHA256 "
+    f"Credential={access_key}/{credential_scope}, "
+    f"SignedHeaders={signed_headers}, "
+    f"Signature={signature}"
+)
+
+headers = {
+    "Content-Type": content_type,
+    "X-Amz-Date": amz_date,
+    "X-Amz-Target": amz_target,
+    "Authorization": authorization,
+}
+if session_token:
+    headers["X-Amz-Security-Token"] = session_token
+
+req = urllib.request.Request(
+    f"https://{host}/",
+    data=payload,
+    headers=headers,
+    method="POST",
+)
+try:
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        body = json.loads(resp.read().decode("utf-8"))
+except urllib.error.HTTPError as e:
+    err = e.read().decode("utf-8", errors="replace")
+    print(f"SM GetSecretValue HTTP {e.code}: {err}", file=sys.stderr)
+    raise SystemExit(1) from e
+
+secret = (body.get("SecretString") or "").strip()
+if not secret:
+    print(f"SM {secret_id} returned empty SecretString", file=sys.stderr)
+    raise SystemExit(1)
+print(secret)
 PY
 }
 

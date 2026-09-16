@@ -125,7 +125,9 @@ still DNS-only (or Account resources omit the tunnel’s account). CNAME create 
 succeed; ingress PUT cannot. Rotate with the commands above, then re-run
 **OpenTofu Apply (gated)**. CI also runs
 `scripts/ci-cloudflare-tunnel-token-prereq.sh` before apply so this fails closed
-with the same instructions.
+with the same instructions. That script reads SM with **Python stdlib SigV4**
+(OIDC env from `configure-aws-credentials`) — the sibling runner has no
+`aws` CLI / `boto3`.
 
 After Zero Trust tunnel create, set GitHub Actions variable
 `TF_VAR_kb_mcp_tunnel_id=<tunnel-uuid>` on **platform-bootstrap** (or use
