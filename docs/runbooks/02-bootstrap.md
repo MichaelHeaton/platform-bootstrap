@@ -17,7 +17,7 @@
 | Layer | Purpose |
 |---|---|
 | **S3 state bucket** | Shared bucket for legacy spoke state paths and compliance checks |
-| **GitHub Actions OIDC** | `platform-bootstrap-github-actions` — validate + compliance + OpenTofu Plan |
+| **GitHub Actions OIDC** | `platform-bootstrap-github-actions` — validate + compliance + OpenTofu Plan/Apply |
 | **HCP Terraform OIDC** | `platform-bootstrap-tfe` — historically used for HCP remote runs; still used when the factory manages spoke HCP workspaces via the `tfe` provider |
 | **Secrets Manager** | Canonical store for GitHub App PEM and HCP org API token (also mirrored to Vault `homelab/hcp/tfe-api-token` for migrate-state) |
 | **State backend** | PostgreSQL on `pg-lxc-01` schema `homelab_platform` (HCP workspace shell disabled) |
@@ -30,7 +30,7 @@ Pull request → GitHub Actions
                  └── Compliance Check (structural + optional AWS read-only)
 
 Merge to main → GitHub Actions OpenTofu Plan again
-                 └── apply: break-glass / future gated apply workflow
+                 └── apply: OpenTofu Apply (gated) — confirm_apply=yes + Environment opentofu-apply
 ```
 
 Do **not** re-attach VCS or turn on HCP auto-apply for `McCleaton-Bootstrap/platform-bootstrap`

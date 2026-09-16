@@ -37,7 +37,8 @@ Do **not** introduce user PATs with manual expiry for Terraform automation. Use 
 | Structural compliance check | `python3 scripts/compliance_check.py --structural-only` |
 | OpenTofu format check | `tofu -chdir=terraform fmt -check -recursive` |
 | OpenTofu validate (no backend) | `tofu -chdir=terraform init -backend=false && tofu -chdir=terraform validate` |
-| Plan / apply (steady state) | GitHub **OpenTofu Plan** on self-hosted runner (`runner-lxc-01`) — PostgreSQL `homelab_platform` (#97). Not HCP remote. |
+| Plan (steady state) | GitHub **OpenTofu Plan** on self-hosted runner (`runner-lxc-01`) — PostgreSQL `homelab_platform` (#97). Not HCP remote. |
+| Apply (gated) | Start in GitHub Actions (**OpenTofu Apply (gated)**); job runs on self-hosted sibling runner. `confirm_apply=yes` + Environment `opentofu-apply`. See [runbook 11](docs/runbooks/11-postgresql-state-cutover.md). |
 | All Makefile targets | `make help` |
 
 ## Non-obvious caveats
