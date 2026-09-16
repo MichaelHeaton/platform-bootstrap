@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Smoke-test ci-cloudflare-tunnel-token-prereq.sh without AWS/Cloudflare.
-# Uses CLOUDFLARE_API_TOKEN override (no aws CLI / boto3) — sibling-runner path.
+# Smoke-test ci-cloudflare-tunnel-token-prereq.sh without live Vault/Cloudflare.
 # Run: bash scripts/tests/test_ci_cloudflare_tunnel_token_prereq.sh
 set -euo pipefail
 
@@ -12,15 +11,9 @@ mkdir -p "${TMP}/bin" "${TMP}/terraform"
 printf 'kb_mcp_tunnel_id = "6b14bcf0-99db-450f-b978-00b4b6eed214"\n' \
   >"${TMP}/terraform/kb_mcp.auto.tfvars"
 
-# Ensure aws/boto3 are NOT used — override token + mock curl only.
 export CLOUDFLARE_API_TOKEN="dns-only-fake-token"
-# Put a failing aws on PATH so accidental aws use would break loudly.
-cat >"${TMP}/bin/aws" <<'EOF'
-#!/usr/bin/env bash
-echo "aws should not be called when CLOUDFLARE_API_TOKEN is set" >&2
-exit 99
-EOF
-chmod +x "${TMP}/bin/aws"
+export GITHUB_ENV="${TMP}/github.env"
+: >"${GITHUB_ENV}"
 
 cat >"${TMP}/bin/curl" <<'EOF'
 #!/usr/bin/env bash
@@ -48,6 +41,9 @@ elif [[ "${url}" == *"/zones?"* ]]; then
 elif [[ "${url}" == *"/configurations" ]]; then
   body='{"success":false,"errors":[{"code":10000,"message":"Authentication error"}],"messages":[],"result":null}'
   code="403"
+elif [[ "${url}" == *"/v1/homelab/data/"* ]]; then
+  echo "Vault should not be called when CLOUDFLARE_API_TOKEN is set" >&2
+  exit 99
 else
   body='{"success":false}'
   code="500"
@@ -70,9 +66,6 @@ sed "s|^ROOT=.*|ROOT=\"${TMP}\"|" \
 chmod +x "${TMP}/prereq.sh"
 
 export PATH="${TMP}/bin:${PATH}"
-export AWS_REGION=us-west-2
-# No AWS keys — stdlib SM path must not run when CLOUDFLARE_API_TOKEN is set.
-unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN || true
 
 set +e
 out="$(bash "${TMP}/prereq.sh" 2>&1)"
@@ -89,34 +82,48 @@ if ! echo "${out}" | grep -q "Cloudflare Tunnel → Edit"; then
   echo "${out}" >&2
   exit 1
 fi
-if echo "${out}" | grep -q "aws should not be called"; then
-  echo "FAIL: aws CLI was invoked despite CLOUDFLARE_API_TOKEN" >&2
-  echo "${out}" >&2
+if ! grep -q 'TF_VAR_cloudflare_api_token=' "${GITHUB_ENV}"; then
+  echo "FAIL: expected TF_VAR export to GITHUB_ENV" >&2
   exit 1
 fi
 
-# Second smoke: stdlib SM reader rejects missing AWS keys (no boto3 path).
-# Hide fake aws so we exercise the stdlib branch (sibling runner has no aws).
+# Second smoke: Vault path required when env token unset.
 unset CLOUDFLARE_API_TOKEN
-mv "${TMP}/bin/aws" "${TMP}/bin/aws.hidden"
+: >"${GITHUB_ENV}"
+cat >"${TMP}/bin/curl" <<'EOF'
+#!/usr/bin/env bash
+# Fail Vault miss clearly
+for a in "$@"; do
+  if [[ "$a" == *"/v1/homelab/data/cloudflare/tunnel-substrate-api"* ]]; then
+    echo '{"data":{"data":{}}}'
+    exit 0
+  fi
+done
+echo '{}'
+exit 0
+EOF
+chmod +x "${TMP}/bin/curl"
+export VAULT_ADDR=https://vault.example.test
+export VAULT_TOKEN=test-token
+
 set +e
 out2="$(bash "${TMP}/prereq.sh" 2>&1)"
 ec2=$?
 set -e
 if [[ "${ec2}" -eq 0 ]]; then
-  echo "FAIL: expected failure without AWS creds / token override" >&2
+  echo "FAIL: expected failure when Vault api_token missing" >&2
   echo "${out2}" >&2
   exit 1
 fi
-if ! echo "${out2}" | grep -q "AWS_ACCESS_KEY_ID"; then
-  echo "FAIL: expected stdlib SM missing-creds message" >&2
+if ! echo "${out2}" | grep -q "tunnel-substrate-api"; then
+  echo "FAIL: expected Vault path guidance" >&2
   echo "${out2}" >&2
   exit 1
 fi
-if echo "${out2}" | grep -q "boto3 both missing"; then
-  echo "FAIL: still on old boto3-only path" >&2
+if echo "${out2}" | grep -qi "boto3\|SigV4\|aws CLI"; then
+  echo "FAIL: still mentioning AWS SM read path" >&2
   echo "${out2}" >&2
   exit 1
 fi
 
-echo "OK: prereq fails closed with Tunnel Edit guidance (no aws/boto3)"
+echo "OK: prereq uses Vault (no AWS SM) and fails closed on Tunnel Edit / missing seed"
