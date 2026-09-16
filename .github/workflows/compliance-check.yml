@@ -16,6 +16,11 @@
 #   • Daily cron at 06:00 UTC — catches drift between CI runs
 #   • Pull request — catches regressions introduced by the PR
 #   • workflow_dispatch — allows on-demand runs, e.g. after an incident
+#
+# pull_request has no path filters: branch protection requires
+# "Compliance Check (AWS)" and "Structural Checks (local)" to report on every
+# PR. Path filters left those checks "Expected — Waiting…" forever when a PR
+# only touched scripts/ (e.g. #112 SigV4 fix). Same pattern as opentofu-plan.yml.
 
 name: Compliance Check
 
@@ -27,13 +32,6 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - "terraform/**"
-      - "scripts/compliance_check.py"
-      - "docs/**"
-      - "AGENTS.md"
-      - "README.md"
-      - ".github/workflows/*.yml"
 
   workflow_dispatch: {}
 
