@@ -304,3 +304,35 @@ variable "specterrealm_repositories" {
   description = "GitHub repositories to manage under the SpecterRealm org. Same schema as managed_repositories."
   default     = []
 }
+
+# ── Cloudflare Tunnel substrate (kb-mcp off-LAN — homelab-infra #1135) ────────
+
+variable "cloudflare_api_token_secret_name" {
+  type        = string
+  description = <<-EOT
+    SM secret with Cloudflare API token (Zone:DNS:Edit + Zone:Read on specterrealm.com).
+    Prefer platform-bootstrap/cloudflare-api-token so the GHA role (platform-bootstrap/*
+    only) can read it without widening IAM to personal/*. Seed by copying
+    personal/cloudflare-api-token once — see docs/runbooks/08-aws-secrets-manager.md.
+  EOT
+  default     = "platform-bootstrap/cloudflare-api-token"
+}
+
+variable "kb_mcp_tunnel_id" {
+  type        = string
+  description = <<-EOT
+    Cloudflare Tunnel UUID for public kb-mcp.specterrealm.com CNAME (homelab-infra #1135).
+    Empty skips the DNS record until the tunnel exists. UUID is public (CNAME target
+    is <uuid>.cfargotunnel.com). Set via TF_VAR_kb_mcp_tunnel_id (Actions variable)
+    after Zero Trust tunnel create. Never a private IP.
+  EOT
+  default     = ""
+
+  validation {
+    condition = (
+      var.kb_mcp_tunnel_id == "" ||
+      can(regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", var.kb_mcp_tunnel_id))
+    )
+    error_message = "kb_mcp_tunnel_id must be empty or a lowercase UUID."
+  }
+}
