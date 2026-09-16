@@ -99,6 +99,10 @@ jobs:
           fi
           tofu version
 
+      # Fail closed on DNS-only SM token before plan/apply (403/10000 on tunnel config).
+      - name: Cloudflare Tunnel token prereq
+        run: bash scripts/ci-cloudflare-tunnel-token-prereq.sh
+
       - name: tofu init (pg)
         run: bash scripts/tofu-pg-init.sh
 
