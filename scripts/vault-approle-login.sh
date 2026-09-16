@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# Vault AppRole login for Forgejo workflows and break-glass recovery.
+# Vault AppRole login for GitHub Actions workflows and break-glass recovery.
 #
-# Primary: VAULT_ADDR / https://vault.specterrealm.com (service DNS via Traefik).
-# Break-glass: http://172.16.0.5:8200 on mgmt VLAN when Traefik routes are not yet synced
-# to NAS (/volume1/docker/traefik/dynamic/routes-vault.yaml) — Deploy Workload nas01
-# apply vault-sso (#236), not a full nas01 apply.
+# Primary: VAULT_ADDR / HOMELAB_VAULT_ADDR / https://vault.specterrealm.com (Traefik).
+# Break-glass: active k3s vault-ha peer on mgmt VLAN (HTTP 200 on /v1/sys/health).
+# NAS01 homelab-vault was removed from Raft (#600) — do not use 172.16.0.5.
 #
 # Prints shell exports for eval: VAULT_TOKEN and VAULT_ADDR (addr actually used).
 #
@@ -15,7 +14,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=scripts/homelab-vault-addr-default.sh
 source "${ROOT}/scripts/homelab-vault-addr-default.sh"
 
-readonly HOMELAB_VAULT_ADDR_BREAKGLASS="${HOMELAB_VAULT_ADDR_BREAKGLASS:-http://172.16.0.5:8200}"
+# Optional override; otherwise discover active among k3s peers.
+readonly HOMELAB_VAULT_ADDR_BREAKGLASS="${HOMELAB_VAULT_ADDR_BREAKGLASS:-}"
 
 : "${VAULT_APPROLE_ROLE_ID:?VAULT_APPROLE_ROLE_ID required}"
 : "${VAULT_APPROLE_SECRET_ID:?VAULT_APPROLE_SECRET_ID required}"
@@ -49,19 +49,37 @@ _approle_login() {
   echo "${resp}" | jq -r '.auth.client_token // empty'
 }
 
+# Active Vault HA peer: /v1/sys/health returns 200 only on the leader (standbys 429).
+_discover_active_peer() {
+  local ip code
+  for ip in 172.16.0.23 172.16.0.24 172.16.0.25; do
+    code=$(curl -sS -m 3 -o /dev/null -w '%{http_code}' "http://${ip}:8200/v1/sys/health" || true)
+    if [[ "${code}" == "200" ]]; then
+      echo "http://${ip}:8200"
+      return 0
+    fi
+  done
+  return 1
+}
+
 _addr_used="${_primary}"
 token="$(_approle_login "${_primary}" || true)"
 
-if [[ -z "${token}" && "${_primary}" != "${HOMELAB_VAULT_ADDR_BREAKGLASS}" ]]; then
-  echo "::warning::Primary Vault login failed at ${_primary}; trying break-glass ${HOMELAB_VAULT_ADDR_BREAKGLASS}" >&2
-  echo "::warning::Sync routes-vault.yaml: Deploy Workload nas01 apply vault-sso (#236)" >&2
-  token="$(_approle_login "${HOMELAB_VAULT_ADDR_BREAKGLASS}" || true)"
-  _addr_used="${HOMELAB_VAULT_ADDR_BREAKGLASS}"
+if [[ -z "${token}" ]]; then
+  _breakglass="${HOMELAB_VAULT_ADDR_BREAKGLASS}"
+  if [[ -z "${_breakglass}" ]]; then
+    _breakglass="$(_discover_active_peer || true)"
+  fi
+  if [[ -n "${_breakglass}" && "${_primary}" != "${_breakglass}" ]]; then
+    echo "::warning::Primary Vault login failed at ${_primary}; trying break-glass ${_breakglass}" >&2
+    token="$(_approle_login "${_breakglass}" || true)"
+    _addr_used="${_breakglass}"
+  fi
 fi
 
 if [[ -z "${token}" ]]; then
-  echo "::error::Vault AppRole login failed at ${_primary} and ${HOMELAB_VAULT_ADDR_BREAKGLASS}" >&2
-  echo "::error::Push routes-vault.yaml to NAS (Deploy Workload nas01 apply vault-sso) and confirm DSM reverse proxy + cert for vault.specterrealm.com" >&2
+  echo "::error::Vault AppRole login failed at ${_primary} (and k3s peer break-glass if attempted)" >&2
+  echo "::error::Confirm vault-ha pods Ready/unsealed and vault-ingress EndpointSlice points at the active leader (#600)" >&2
   exit 1
 fi
 
