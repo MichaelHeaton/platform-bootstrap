@@ -72,3 +72,22 @@ HCP workspace VCS disconnected + `auto-apply=false`.
 Gated apply workflow added (`opentofu-apply.yml`). Operator must still create/configure the
 `opentofu-apply` Environment with required reviewers (above) before the first successful apply.
 Unblocks Terraform-owned Cloudflare Tunnel DNS (e.g. `kb-mcp` CNAME from #105) without CLI apply.
+
+## Provider download flakes (GitHub CDN RST)
+
+`actions/checkout` cleans the workspace, so `.terraform/` providers are re-fetched every
+job from the GitHub releases CDN (`185.199.x.x`). On `runner-lxc-01` that path occasionally
+returns `read: connection reset by peer` mid-install (same class as
+[homelab-infra #879](https://github.com/MichaelHeaton/homelab-infra/issues/879) /
+[docs/ci-runner-network-health.md](https://github.com/MichaelHeaton/homelab-infra/blob/main/docs/ci-runner-network-health.md)).
+
+`scripts/tofu-pg-init.sh` mitigates this without hand-installing plugins:
+
+1. **`TF_PLUGIN_CACHE_DIR`** — defaults to `${RUNNER_TOOL_CACHE}/opentofu-plugins` (or
+   `/opt/actions-runner-platform-bootstrap/.opentofu-plugin-cache`) so warm providers
+   survive checkout clean.
+2. **Retry** — up to 4 attempts with exponential backoff on `tofu init` failure.
+
+If Plan/Apply still fails at init after a merge that only touched providers: **Re-run
+failed jobs** in the Actions UI (or re-dispatch gated apply). Do not SSH onto the runner
+to `tofu providers mirror` unless both cache + retries are exhausted.

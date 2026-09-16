@@ -7,6 +7,14 @@
 #   scripts/tofu-pg-init.sh [--migrate-state]
 #
 # Requires VAULT_TOKEN + VAULT_ADDR (AppRole login in CI).
+#
+# Provider downloads: checkout@v4 cleans the workspace (.terraform/), so every
+# job re-fetches providers from the GitHub releases CDN (185.199.x.x) unless a
+# persistent TF_PLUGIN_CACHE_DIR is set. runner-lxc-01 has seen intermittent
+# "connection reset by peer" on those downloads (same class as homelab-infra
+# #879). This script:
+#   1. Points TF_PLUGIN_CACHE_DIR at a runner-local dir outside the workspace
+#   2. Retries tofu init with exponential backoff on transient failure
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -19,6 +27,20 @@ fi
 
 : "${VAULT_ADDR:?VAULT_ADDR required}"
 : "${VAULT_TOKEN:?VAULT_TOKEN required}"
+
+# Persist providers across jobs (survives actions/checkout clean of the workspace).
+if [[ -z "${TF_PLUGIN_CACHE_DIR:-}" ]]; then
+  if [[ -n "${RUNNER_TOOL_CACHE:-}" ]]; then
+    TF_PLUGIN_CACHE_DIR="${RUNNER_TOOL_CACHE}/opentofu-plugins"
+  elif [[ -d /opt/actions-runner-platform-bootstrap ]]; then
+    TF_PLUGIN_CACHE_DIR="/opt/actions-runner-platform-bootstrap/.opentofu-plugin-cache"
+  else
+    TF_PLUGIN_CACHE_DIR="${HOME}/.opentofu.d/plugin-cache"
+  fi
+fi
+mkdir -p "${TF_PLUGIN_CACHE_DIR}"
+export TF_PLUGIN_CACHE_DIR
+echo "TF_PLUGIN_CACHE_DIR=${TF_PLUGIN_CACHE_DIR}"
 
 CONN="$(curl -sf \
   -H "X-Vault-Token: ${VAULT_TOKEN}" \
@@ -52,4 +74,24 @@ if $MIGRATE; then
   INIT_ARGS=(-migrate-state "${INIT_ARGS[@]}")
 fi
 
-tofu -chdir="${WORKSPACE_DIR}" init "${INIT_ARGS[@]}"
+# Retry provider-install RST / short GitHub CDN blips without hand-installing plugins.
+MAX_ATTEMPTS="${TOFU_INIT_MAX_ATTEMPTS:-4}"
+DELAY="${TOFU_INIT_RETRY_DELAY_SEC:-5}"
+attempt=1
+while true; do
+  set +e
+  tofu -chdir="${WORKSPACE_DIR}" init "${INIT_ARGS[@]}"
+  ec=$?
+  set -e
+  if [[ "${ec}" -eq 0 ]]; then
+    break
+  fi
+  if [[ "${attempt}" -ge "${MAX_ATTEMPTS}" ]]; then
+    echo "::error::tofu init failed after ${MAX_ATTEMPTS} attempts (last exit ${ec})" >&2
+    exit "${ec}"
+  fi
+  echo "::warning::tofu init failed (attempt ${attempt}/${MAX_ATTEMPTS}, exit ${ec}); retrying in ${DELAY}s — often GitHub CDN RST on provider download"
+  sleep "${DELAY}"
+  DELAY=$((DELAY * 2))
+  attempt=$((attempt + 1))
+done

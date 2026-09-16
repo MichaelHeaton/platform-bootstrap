@@ -53,8 +53,8 @@ jobs:
     environment: opentofu-apply
     runs-on: [self-hosted, linux, homelab]
     env:
-      # Same as OpenTofu Plan — LAN Vault peer from sibling runner (#105 addr fix).
-      HOMELAB_VAULT_ADDR: http://172.16.0.5:8200
+      # Same as OpenTofu Plan — k3s vault-ha via Traefik (#600). Do not use NAS 172.16.0.5.
+      HOMELAB_VAULT_ADDR: https://vault.specterrealm.com
       AWS_REGION: ${{ vars.AWS_REGION }}
       TF_VAR_aws_region: ${{ vars.AWS_REGION }}
       TF_VAR_aws_account_id: ${{ vars.AWS_ACCOUNT_ID }}
@@ -74,7 +74,13 @@ jobs:
           VAULT_APPROLE_ROLE_ID: ${{ secrets.VAULT_APPROLE_ROLE_ID }}
           VAULT_APPROLE_SECRET_ID: ${{ secrets.VAULT_APPROLE_SECRET_ID }}
         run: |
+          # Fail closed: bash does not inherit errexit into $(...), so an empty
+          # eval must not continue into tofu init with blank VAULT_*.
           eval "$(bash scripts/vault-approle-login.sh)"
+          if [[ -z "${VAULT_TOKEN:-}" || -z "${VAULT_ADDR:-}" ]]; then
+            echo "::error::Vault AppRole login produced empty VAULT_TOKEN/VAULT_ADDR"
+            exit 1
+          fi
           echo "::add-mask::${VAULT_TOKEN}"
           echo "VAULT_TOKEN=${VAULT_TOKEN}" >> "${GITHUB_ENV}"
           echo "VAULT_ADDR=${VAULT_ADDR}" >> "${GITHUB_ENV}"
