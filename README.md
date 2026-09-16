@@ -49,8 +49,9 @@ Roadmap and audit backlog: **homelab-infra** [docs/iac-modernization.md](https:/
    `environment`, `cloud`, `function`, and `allowed_refs`.
 3. Open a PR — the **OpenTofu Plan** workflow runs `tofu plan` on the self-hosted
    sibling runner against PostgreSQL state (`homelab_platform`).
-4. After merge, plan again on `main`; apply is break-glass / gated until an apply
-   workflow is added (see [runbook 11](docs/runbooks/11-postgresql-state-cutover.md)).
+4. After merge, plan again on `main`; apply via **OpenTofu Apply (gated)**
+   (`confirm_apply=yes` + Environment `opentofu-apply` — see
+   [runbook 11](docs/runbooks/11-postgresql-state-cutover.md)).
 5. The new repository can now authenticate to AWS via OIDC using the role
    `{environment}-{cloud}-{function}-github-actions`.
 

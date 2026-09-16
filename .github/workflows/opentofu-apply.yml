@@ -1,0 +1,144 @@
+# Gated OpenTofu apply on self-hosted runner (VLAN 1) against PostgreSQL state (#97).
+#
+# Dispatch-only. Two gates before mutation:
+#   1. workflow_dispatch confirm_apply=yes
+#   2. GitHub Environment `opentofu-apply` required reviewers
+#      (Settings → Environments — see runbook 11)
+#
+# Reuses the same Vault AppRole + AWS OIDC + TF_VAR_* wiring as opentofu-plan.yml.
+# Do not run interactive tofu apply on runner-lxc-01 for routine DNS/factory changes.
+
+name: OpenTofu Apply (gated)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_apply:
+        description: "REQUIRED — set yes after reviewing OpenTofu Plan on main (homelab-infra Deploy Workload pattern)"
+        required: true
+        type: choice
+        options:
+          - "no"
+          - "yes"
+        default: "no"
+
+permissions:
+  contents: read
+  id-token: write
+
+# Never cancel an in-flight apply (plan workflow may cancel sibling plans).
+concurrency:
+  group: opentofu-platform-bootstrap-apply
+  cancel-in-progress: false
+
+jobs:
+  confirm_apply_guard:
+    if: inputs.confirm_apply != 'yes'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block apply without confirm_apply
+        run: |
+          echo "::error::Gated apply blocked — set confirm_apply to yes after reviewing a clean OpenTofu Plan on main."
+          echo "::error::Routine path: Actions → OpenTofu Apply (gated) → confirm_apply=yes → approve Environment opentofu-apply."
+          exit 1
+
+  apply:
+    if: inputs.confirm_apply == 'yes'
+    # Pause for Environment required reviewers before any self-hosted work.
+    # Create/configure: Settings → Environments → opentofu-apply (runbook 11).
+    environment: opentofu-apply
+    runs-on: [self-hosted, linux, homelab]
+    env:
+      # Same as OpenTofu Plan — LAN Vault peer from sibling runner (#105 addr fix).
+      HOMELAB_VAULT_ADDR: http://172.16.0.5:8200
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+      TF_VAR_aws_account_id: ${{ vars.AWS_ACCOUNT_ID }}
+      TF_VAR_state_bucket_name: ${{ vars.TF_STATE_BUCKET_NAME }}
+      TF_VAR_github_org: ${{ vars.GH_ORG }}
+      TF_VAR_github_app_id: ${{ vars.GH_APP_ID }}
+      TF_VAR_github_app_installation_id: ${{ vars.GH_APP_INSTALLATION_ID }}
+      TF_VAR_specterrealm_github_app_installation_id: ${{ vars.SPECTERREALM_GITHUB_APP_INSTALLATION_ID }}
+      TF_VAR_mccleaton_github_app_installation_id: ${{ vars.MCCLEATON_GITHUB_APP_INSTALLATION_ID }}
+      TF_VAR_specterrealm_homelab_github_app_installation_id: ${{ vars.SPECTERREALM_HOMELAB_GITHUB_APP_INSTALLATION_ID }}
+      TF_VAR_tfe_vcs_oauth_token_id: ${{ vars.TFE_VCS_OAUTH_TOKEN_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vault AppRole login
+        env:
+          VAULT_APPROLE_ROLE_ID: ${{ secrets.VAULT_APPROLE_ROLE_ID }}
+          VAULT_APPROLE_SECRET_ID: ${{ secrets.VAULT_APPROLE_SECRET_ID }}
+        run: |
+          eval "$(bash scripts/vault-approle-login.sh)"
+          echo "::add-mask::${VAULT_TOKEN}"
+          echo "VAULT_TOKEN=${VAULT_TOKEN}" >> "${GITHUB_ENV}"
+          echo "VAULT_ADDR=${VAULT_ADDR}" >> "${GITHUB_ENV}"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/platform-bootstrap-github-actions
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Assert tofu present
+        run: |
+          if ! command -v tofu >/dev/null 2>&1; then
+            echo "::error::tofu not found — bootstrap-runner.yml on runner-lxc-01"
+            exit 1
+          fi
+          tofu version
+
+      - name: tofu init (pg)
+        run: bash scripts/tofu-pg-init.sh
+
+      - name: tofu fmt -check
+        run: tofu -chdir=terraform fmt -check -recursive
+
+      - name: tofu validate
+        run: tofu -chdir=terraform validate
+
+      - name: tofu plan (saved)
+        id: plan
+        run: |
+          set +e
+          tofu -chdir=terraform plan -no-color -input=false -out=tfplan -detailed-exitcode
+          exit_code=$?
+          set -e
+          echo "exit_code=${exit_code}" >> "${GITHUB_OUTPUT}"
+          if [[ "${exit_code}" -eq 1 ]]; then
+            echo "::error::tofu plan errored (exit 1)"
+            exit 1
+          fi
+
+      - name: tofu apply (saved plan)
+        if: steps.plan.outputs.exit_code == '2'
+        run: tofu -chdir=terraform apply -auto-approve -input=false tfplan
+
+      - name: Verify no drift (post-apply plan)
+        if: steps.plan.outputs.exit_code == '2'
+        env:
+          VAULT_APPROLE_ROLE_ID: ${{ secrets.VAULT_APPROLE_ROLE_ID }}
+          VAULT_APPROLE_SECRET_ID: ${{ secrets.VAULT_APPROLE_SECRET_ID }}
+        run: |
+          # Re-login in case AppRole TTL was short relative to apply.
+          eval "$(bash scripts/vault-approle-login.sh)"
+          echo "::add-mask::${VAULT_TOKEN}"
+          export VAULT_TOKEN VAULT_ADDR
+          set +e
+          tofu -chdir=terraform plan -no-color -input=false -detailed-exitcode
+          exit_code=$?
+          set -e
+          if [[ "${exit_code}" -eq 1 ]]; then
+            echo "::error::tofu plan errored after apply"
+            exit 1
+          fi
+          if [[ "${exit_code}" -eq 2 ]]; then
+            echo "::error::Drift detected after apply — plan still shows changes"
+            exit 1
+          fi
+          echo "✓ Post-apply plan clean"
+
+      - name: No changes
+        if: steps.plan.outputs.exit_code == '0'
+        run: echo "✓ Plan clean — nothing to apply"

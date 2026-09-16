@@ -28,10 +28,41 @@ one repo-scoped runner across repos).
 ## Day-to-day
 
 - PR / push to `main` touching `terraform/**` → **OpenTofu Plan** on `[self-hosted, linux, homelab]`.
-- Apply: extend with a gated apply workflow when ready; until then use break-glass
-  `tofu apply` on the runner after plan review.
+- Apply → **OpenTofu Apply (gated)** (`workflow_dispatch` only). Two gates:
+  1. Set `confirm_apply=yes` (same pattern as homelab-infra Deploy Workload).
+  2. Approve the GitHub Environment **`opentofu-apply`** (required reviewers).
+
+Do **not** use interactive `tofu apply` on `runner-lxc-01` for routine factory/DNS
+changes (Guacamole/SSH/env drift). Prefer the gated Action.
+
+### One-time: configure Environment `opentofu-apply`
+
+GitHub does not create Environments from workflow YAML alone. Before the first apply:
+
+1. Repo **Settings → Environments → New environment** → name exactly `opentofu-apply`.
+2. **Required reviewers:** add yourself (and any other operator). Admins can bypass if
+   `Allow administrators to bypass` stays on — prefer reviewing anyway.
+3. Optional: **Deployment branches** → Selected branches → `main` only.
+4. Save. First **OpenTofu Apply (gated)** run will pause on the Environment until approved.
+
+Secrets/vars are **repo-level** (same as OpenTofu Plan) — do not duplicate them onto the
+Environment unless you intentionally want Environment-scoped overrides.
+
+### Ops steps (apply after a reviewed plan)
+
+1. Confirm latest **OpenTofu Plan** on `main` shows the expected changes (e.g. kb-mcp CNAME).
+2. Actions → **OpenTofu Apply (gated)** → Run workflow → branch `main` → `confirm_apply=yes`.
+3. Open the run → **Review deployments** → approve `opentofu-apply`.
+4. Job runs on the sibling self-hosted runner: Vault AppRole → AWS OIDC → `tofu plan -out`
+   → `tofu apply` saved plan → post-apply plan must be clean.
 
 ## Status (2026-09-10)
 
 Cutover complete: HCP serial 154 pushed to `homelab_platform`; local `tofu plan` → **No changes**.
 HCP workspace VCS disconnected + `auto-apply=false`.
+
+## Status (2026-09-16)
+
+Gated apply workflow added (`opentofu-apply.yml`). Operator must still create/configure the
+`opentofu-apply` Environment with required reviewers (above) before the first successful apply.
+Unblocks Terraform-owned Cloudflare Tunnel DNS (e.g. `kb-mcp` CNAME from #105) without CLI apply.
