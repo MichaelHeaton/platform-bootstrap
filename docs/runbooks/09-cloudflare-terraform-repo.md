@@ -7,9 +7,12 @@
 
 **Status (2026-09):** `McCleaton/cloudflare` consolidated into
 `homelab-infra/terraform/cloudflare/` (#102 Wave D; pg state #259). Mail/DNS stay there.
-**Tunnel substrate** (public `kb-mcp` CNAME → `*.cfargotunnel.com`, #1135) lives in
-**this** repo: `terraform/cloudflare-tunnel.tf` + SM `platform-bootstrap/cloudflare-api-token`
-(see runbook 08). Homelab GitOps owns the `cloudflared` connector.
+**Tunnel substrate** (public `kb-mcp` CNAME → `*.cfargotunnel.com` **and** remote
+ingress hostname → in-cluster service, #1135) lives in **this** repo:
+`terraform/cloudflare-tunnel.tf` + SM `platform-bootstrap/cloudflare-api-token`
+(DNS Edit + Tunnel Edit — see runbook 08). Homelab GitOps owns the `cloudflared`
+connector. Do not use the Zero Trust Published-application UI to attach the
+hostname (it tries to create a competing CNAME).
 
 ---
 
