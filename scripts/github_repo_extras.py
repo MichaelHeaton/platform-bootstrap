@@ -161,6 +161,7 @@ def _create_initial_branch(
     branch: str,
     *,
     codeowners: str,
+    codeowners_path: str = "CODEOWNERS",
     license_spdx_id: str = "",
     license_copyright_holder: str = "",
 ) -> None:
@@ -170,13 +171,22 @@ def _create_initial_branch(
     encoded_repo = urllib.parse.quote(repo, safe="")
     remote = f"https://x-access-token:{encoded_token}@github.com/{encoded_owner}/{encoded_repo}.git"
 
+    allowed_codeowners = {"CODEOWNERS", ".github/CODEOWNERS", "docs/CODEOWNERS"}
+    if codeowners_path not in allowed_codeowners:
+        sys.exit(
+            f"Unsupported codeowners path {codeowners_path!r}. "
+            f"Allowed: {', '.join(sorted(allowed_codeowners))}"
+        )
+
     with tempfile.TemporaryDirectory(prefix=f"{repo}-init-") as tmp:
         workdir = Path(tmp)
         (workdir / "README.md").write_text(
-            f"# {repo}\n\nManaged by platform-bootstrap.\n",
+            f"# {repo}\n",
             encoding="utf-8",
         )
-        (workdir / "CODEOWNERS").write_text(codeowners, encoding="utf-8")
+        codeowners_file = workdir / codeowners_path
+        codeowners_file.parent.mkdir(parents=True, exist_ok=True)
+        codeowners_file.write_text(codeowners, encoding="utf-8")
         if license_spdx_id:
             (workdir / "LICENSE").write_text(
                 _license_text(license_spdx_id, license_copyright_holder or owner),
@@ -190,7 +200,7 @@ def _create_initial_branch(
             workdir,
             token=token,
         )
-        initial_files = ["README.md", "CODEOWNERS"]
+        initial_files = ["README.md", codeowners_path]
         if license_spdx_id:
             initial_files.append("LICENSE")
         _run_git(["add", *initial_files], workdir, token=token)
@@ -233,6 +243,7 @@ def cmd_ensure_default_branch(args: argparse.Namespace) -> None:
         args.repo,
         desired,
         codeowners=codeowners,
+        codeowners_path=args.codeowners_path,
         license_spdx_id=args.license_spdx_id,
         license_copyright_holder=args.license_copyright_holder,
     )
@@ -370,6 +381,11 @@ def main() -> None:
     init.add_argument("--repo", required=True)
     init.add_argument("--branch", required=True)
     init.add_argument("--codeowners", required=True, help="Space-delimited CODEOWNERS handles")
+    init.add_argument(
+        "--codeowners-path",
+        default="CODEOWNERS",
+        help="Path for CODEOWNERS (CODEOWNERS, .github/CODEOWNERS, or docs/CODEOWNERS)",
+    )
     init.add_argument("--license-spdx-id", default="")
     init.add_argument("--license-copyright-holder", default="")
     init.set_defaults(func=cmd_ensure_default_branch)

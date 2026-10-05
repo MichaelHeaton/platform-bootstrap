@@ -47,6 +47,16 @@ locals {
     if try(repo.branch_protection, true)
   }
 
+  dependabot_security_updates_repos = {
+    for name, repo in local.repos_map : name => repo
+    if try(repo.dependabot_security_updates, false)
+  }
+
+  actions_hardened_repos = {
+    for name, repo in local.repos_map : name => repo
+    if try(repo.actions_hardened, false)
+  }
+
   pages_repos = {
     for name, repo in local.repos_map : name => repo
     if try(repo.pages, null) != null

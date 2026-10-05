@@ -37,6 +37,16 @@ variable "repositories" {
 
     main_branch_ruleset = optional(bool, false)
     branch_protection   = optional(bool, true)
+
+    # Opt-in baseline knobs (defaults preserve legacy module behavior). See ADR-008.
+    squash_merge_only               = optional(bool, false)
+    require_signed_commits          = optional(bool, false)
+    require_linear_history          = optional(bool, false)
+    require_conversation_resolution = optional(bool, false)
+    enforce_admins                  = optional(bool, false)
+    codeowners_file                 = optional(string, "CODEOWNERS")
+    dependabot_security_updates     = optional(bool, false)
+    actions_hardened                = optional(bool, false)
   }))
   description = "Repositories to manage. Must NOT include platform-bootstrap (see ADR-004)."
 
@@ -92,6 +102,14 @@ variable "repositories" {
       try(r.pages.source.path, "/") == "/" || try(r.pages.source.path, "/") == "/docs"
     ])
     error_message = "Repository Pages source.path must be '/' or '/docs'."
+  }
+
+  validation {
+    condition = alltrue([
+      for r in var.repositories :
+      contains(["CODEOWNERS", ".github/CODEOWNERS", "docs/CODEOWNERS"], try(r.codeowners_file, "CODEOWNERS"))
+    ])
+    error_message = "Repository codeowners_file must be CODEOWNERS, .github/CODEOWNERS, or docs/CODEOWNERS."
   }
 }
 

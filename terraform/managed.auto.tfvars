@@ -165,6 +165,21 @@ managed_repositories = [
     topics      = ["readme-profile"]
   },
   {
+    name        = "iris"
+    description = "Iris: a personal AI assistant suite with a web UI, API, and MCP server (knowledge, relationships, tickets, calendar). Monorepo of modular services."
+    visibility  = "private"
+    topics = [
+      "personal-assistant",
+      "ai",
+      "rag",
+      "mcp",
+      "second-brain",
+      "ticketing",
+      "microservices",
+    ]
+    # Baseline protection / Actions / labels merged from terraform/iris.tf (ADR-008).
+  },
+  {
     name        = "memex"
     description = "My Default Obsidian Vault"
     visibility  = "private"

@@ -14,6 +14,7 @@ resource "terraform_data" "initialize_default_branch" {
     repository               = each.value.name
     branch                   = each.value.default_branch
     codeowners               = join(" ", var.codeowners)
+    codeowners_path          = try(each.value.codeowners_file, "CODEOWNERS")
     license_spdx_id          = try(each.value.license.spdx_id, "")
     license_copyright_holder = try(each.value.license.copyright_holder, "")
   }
@@ -21,7 +22,7 @@ resource "terraform_data" "initialize_default_branch" {
   depends_on = [github_repository.managed]
 
   provisioner "local-exec" {
-    command = "python3 ${local.extras_script} ensure-default-branch --repo ${jsonencode(each.value.name)} --branch ${jsonencode(each.value.default_branch)} --codeowners ${jsonencode(join(" ", var.codeowners))} --license-spdx-id ${jsonencode(try(each.value.license.spdx_id, ""))} --license-copyright-holder ${jsonencode(try(each.value.license.copyright_holder, ""))}"
+    command = "python3 ${local.extras_script} ensure-default-branch --repo ${jsonencode(each.value.name)} --branch ${jsonencode(each.value.default_branch)} --codeowners ${jsonencode(join(" ", var.codeowners))} --codeowners-path ${jsonencode(try(each.value.codeowners_file, "CODEOWNERS"))} --license-spdx-id ${jsonencode(try(each.value.license.spdx_id, ""))} --license-copyright-holder ${jsonencode(try(each.value.license.copyright_holder, ""))}"
     environment = {
       GITHUB_TOKEN = data.github_app_token.local_exec.token
       GITHUB_ORG   = var.github_org

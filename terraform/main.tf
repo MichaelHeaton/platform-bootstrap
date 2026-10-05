@@ -135,6 +135,8 @@ locals {
     for repo in var.managed_repositories : (
       repo.name == "minecraft-modpack-cp-verdant"
       ? merge(repo, local.pack_settings_minecraft_modpack_cp_verdant)
+      : repo.name == "iris"
+      ? merge(repo, local.iris_settings)
       : repo
     )
   ]

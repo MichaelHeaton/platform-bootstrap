@@ -47,6 +47,7 @@ def test_ensure_default_branch_noops_when_branch_exists() -> None:
             "repo": "ai-skills",
             "branch": "main",
             "codeowners": "@MichaelHeaton",
+            "codeowners_path": "CODEOWNERS",
             "license_spdx_id": "",
             "license_copyright_holder": "",
         },
@@ -78,6 +79,7 @@ def test_ensure_default_branch_initializes_empty_repo() -> None:
             "repo": "ai-skills",
             "branch": "main",
             "codeowners": "@MichaelHeaton",
+            "codeowners_path": ".github/CODEOWNERS",
             "license_spdx_id": "MIT",
             "license_copyright_holder": "Michael Heaton",
         },
@@ -108,6 +110,7 @@ def test_ensure_default_branch_initializes_empty_repo() -> None:
     assert git_calls[0] == ["init", "-b", "main"]
     add_call = next(call for call in git_calls if call[0] == "add")
     assert "LICENSE" in add_call
+    assert ".github/CODEOWNERS" in add_call
     assert git_calls[-1][0] == "push"
     assert git_calls[-1][-1] == "HEAD:refs/heads/main"
     patch_call = api_calls[-1]
