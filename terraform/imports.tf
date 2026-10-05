@@ -14,6 +14,48 @@ import {
   id = "iris"
 }
 
+# minecraft-modpack-ltm no longer exists on GitHub (404). Drop from state without
+# destroy — github_repository has prevent_destroy, and the remote is already gone.
+removed {
+  from = module.github_repos.github_repository.managed["minecraft-modpack-ltm"]
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = module.github_repos.github_repository_vulnerability_alerts.managed["minecraft-modpack-ltm"]
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = module.github_repos.github_branch_protection.main["minecraft-modpack-ltm"]
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = module.github_repos.github_repository_file.codeowners["minecraft-modpack-ltm"]
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = module.github_repos.terraform_data.initialize_default_branch["minecraft-modpack-ltm"]
+
+  lifecycle {
+    destroy = false
+  }
+}
+
 # homelab-azure / homelab-identity / homelab-proxmox imports removed — HCP workspaces
 # disabled after PostgreSQL cutover (homelab-infra #214). Keeping import blocks would
 # fail plan once tfe_workspace.spoke no longer contains those keys.

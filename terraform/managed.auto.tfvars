@@ -235,11 +235,8 @@ managed_repositories = [
     description = "Colony Protocol: Verdant — Specter Realms modpack series"
     visibility  = "private"
   },
-  {
-    name        = "minecraft-modpack-ltm"
-    description = "Specter Realms LTM — Persistent biodome world"
-    visibility  = "private"
-  },
+  # minecraft-modpack-ltm deleted on GitHub (404); dropped from config with
+  # removed { destroy = false } blocks in terraform/imports.tf (Iris PR unblock).
 ]
 
 mccleaton_repositories = [

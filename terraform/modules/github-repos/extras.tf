@@ -10,11 +10,12 @@ locals {
 resource "terraform_data" "initialize_default_branch" {
   for_each = local.repos_map
 
+  # Keep codeowners_path out of `input` so adding the flag does not update every
+  # existing repo's terraform_data (provisioner still receives --codeowners-path).
   input = {
     repository               = each.value.name
     branch                   = each.value.default_branch
     codeowners               = join(" ", var.codeowners)
-    codeowners_path          = try(each.value.codeowners_file, "CODEOWNERS")
     license_spdx_id          = try(each.value.license.spdx_id, "")
     license_copyright_holder = try(each.value.license.copyright_holder, "")
   }
