@@ -14,77 +14,10 @@ import {
   id = "iris"
 }
 
-# minecraft-modpack-ltm was deleted on GitHub while still in state (plan 404).
-# OpenTofu cannot `removed` a for_each instance key — move each instance to a
-# temporary non-indexed address, then forget with destroy = false
-# (opentofu/opentofu#3361). An empty tombstone repo was recreated so the
-# provider can refresh before forget; after apply, delete that tombstone and
-# remove these blocks.
-
-moved {
-  from = module.github_repos.github_repository.managed["minecraft-modpack-ltm"]
-  to   = github_repository.forgotten_minecraft_modpack_ltm
-}
-
-moved {
-  from = module.github_repos.github_repository_vulnerability_alerts.managed["minecraft-modpack-ltm"]
-  to   = github_repository_vulnerability_alerts.forgotten_minecraft_modpack_ltm
-}
-
-moved {
-  from = module.github_repos.github_branch_protection.main["minecraft-modpack-ltm"]
-  to   = github_branch_protection.forgotten_minecraft_modpack_ltm
-}
-
-moved {
-  from = module.github_repos.github_repository_file.codeowners["minecraft-modpack-ltm"]
-  to   = github_repository_file.forgotten_minecraft_modpack_ltm
-}
-
-moved {
-  from = module.github_repos.terraform_data.initialize_default_branch["minecraft-modpack-ltm"]
-  to   = terraform_data.forgotten_minecraft_modpack_ltm
-}
-
-removed {
-  from = github_repository.forgotten_minecraft_modpack_ltm
-
-  lifecycle {
-    destroy = false
-  }
-}
-
-removed {
-  from = github_repository_vulnerability_alerts.forgotten_minecraft_modpack_ltm
-
-  lifecycle {
-    destroy = false
-  }
-}
-
-removed {
-  from = github_branch_protection.forgotten_minecraft_modpack_ltm
-
-  lifecycle {
-    destroy = false
-  }
-}
-
-removed {
-  from = github_repository_file.forgotten_minecraft_modpack_ltm
-
-  lifecycle {
-    destroy = false
-  }
-}
-
-removed {
-  from = terraform_data.forgotten_minecraft_modpack_ltm
-
-  lifecycle {
-    destroy = false
-  }
-}
+# minecraft-modpack-ltm was forgotten from PostgreSQL state via workflow_dispatch
+# action forget-minecraft-modpack-ltm (state rm). OpenTofu cannot removed{} keyed
+# instances (opentofu/opentofu#3361); provider refresh also failed on stale SHAs
+# after the GitHub tombstone recreate.
 
 # homelab-azure / homelab-identity / homelab-proxmox imports removed — HCP workspaces
 # disabled after PostgreSQL cutover (homelab-infra #214). Keeping import blocks would

@@ -18,12 +18,13 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "plan | migrate-state"
+        description: "plan | migrate-state | forget-minecraft-modpack-ltm"
         required: true
         type: choice
         options:
           - plan
           - migrate-state
+          - forget-minecraft-modpack-ltm
         default: plan
 
 permissions:
@@ -122,6 +123,87 @@ jobs:
       - name: tofu plan
         if: steps.tofu.outputs.run == 'true'
         run: tofu -chdir=terraform plan -no-color -input=false
+
+  forget-minecraft-modpack-ltm:
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'forget-minecraft-modpack-ltm'
+    runs-on: [self-hosted, linux, homelab]
+    env:
+      # k3s vault-ha via Traefik (#600). Do not use NAS 172.16.0.5 — Raft peer retired.
+      HOMELAB_VAULT_ADDR: https://vault.specterrealm.com
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+      TF_VAR_aws_account_id: ${{ vars.AWS_ACCOUNT_ID }}
+      TF_VAR_state_bucket_name: ${{ vars.TF_STATE_BUCKET_NAME }}
+      TF_VAR_github_org: ${{ vars.GH_ORG }}
+      TF_VAR_github_app_id: ${{ vars.GH_APP_ID }}
+      TF_VAR_github_app_installation_id: ${{ vars.GH_APP_INSTALLATION_ID }}
+      TF_VAR_specterrealm_github_app_installation_id: ${{ vars.SPECTERREALM_GITHUB_APP_INSTALLATION_ID }}
+      TF_VAR_mccleaton_github_app_installation_id: ${{ vars.MCCLEATON_GITHUB_APP_INSTALLATION_ID }}
+      TF_VAR_specterrealm_homelab_github_app_installation_id: ${{ vars.SPECTERREALM_HOMELAB_GITHUB_APP_INSTALLATION_ID }}
+      TF_VAR_tfe_vcs_oauth_token_id: ${{ vars.TFE_VCS_OAUTH_TOKEN_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Vault AppRole login
+        env:
+          VAULT_APPROLE_ROLE_ID: ${{ secrets.VAULT_APPROLE_ROLE_ID }}
+          VAULT_APPROLE_SECRET_ID: ${{ secrets.VAULT_APPROLE_SECRET_ID }}
+        run: |
+          # Fail closed: bash does not inherit errexit into $(...), so an empty
+          # eval must not continue into tofu init with blank VAULT_*.
+          eval "$(bash scripts/vault-approle-login.sh)"
+          if [[ -z "${VAULT_TOKEN:-}" || -z "${VAULT_ADDR:-}" ]]; then
+            echo "::error::Vault AppRole login produced empty VAULT_TOKEN/VAULT_ADDR"
+            exit 1
+          fi
+          echo "::add-mask::${VAULT_TOKEN}"
+          echo "VAULT_TOKEN=${VAULT_TOKEN}" >> "${GITHUB_ENV}"
+          echo "VAULT_ADDR=${VAULT_ADDR}" >> "${GITHUB_ENV}"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/platform-bootstrap-github-actions
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Assert tofu present
+        run: |
+          if ! command -v tofu >/dev/null 2>&1; then
+            echo "::error::tofu not found — bootstrap-runner.yml on runner-lxc-01"
+            exit 1
+          fi
+          tofu version
+
+      - name: tofu init (pg)
+        run: bash scripts/tofu-pg-init.sh
+
+      - name: Forget minecraft-modpack-ltm from state
+        run: |
+          set -euo pipefail
+          addresses=(
+            'module.github_repos.github_repository.managed["minecraft-modpack-ltm"]'
+            'module.github_repos.github_repository_vulnerability_alerts.managed["minecraft-modpack-ltm"]'
+            'module.github_repos.github_branch_protection.main["minecraft-modpack-ltm"]'
+            'module.github_repos.github_repository_file.codeowners["minecraft-modpack-ltm"]'
+            'module.github_repos.terraform_data.initialize_default_branch["minecraft-modpack-ltm"]'
+            'github_repository.forgotten_minecraft_modpack_ltm'
+            'github_repository_vulnerability_alerts.forgotten_minecraft_modpack_ltm'
+            'github_branch_protection.forgotten_minecraft_modpack_ltm'
+            'github_repository_file.forgotten_minecraft_modpack_ltm'
+            'terraform_data.forgotten_minecraft_modpack_ltm'
+          )
+          for addr in "${addresses[@]}"; do
+            echo "state rm: ${addr}"
+            tofu -chdir=terraform state rm "${addr}" || true
+          done
+
+      - name: Confirm ltm absent from state
+        run: |
+          set -euo pipefail
+          echo "Remaining ltm-related state addresses (expect none):"
+          tofu -chdir=terraform state list | grep -i ltm || true
 
   migrate-state:
     if: github.event_name == 'workflow_dispatch' && inputs.action == 'migrate-state'
