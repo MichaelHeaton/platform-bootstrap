@@ -14,34 +14,39 @@ import {
   id = "iris"
 }
 
-# minecraft-modpack-ltm no longer exists on GitHub (404). Drop from state without
-# destroy — github_repository has prevent_destroy, and the remote is already gone.
-removed {
+# minecraft-modpack-ltm no longer exists on GitHub (404). OpenTofu cannot
+# `removed` a for_each instance key directly — move each instance to a
+# temporary non-indexed address, then forget with destroy = false.
+# (Same pattern as opentofu/opentofu#3361.) Delete these blocks after one
+# successful apply that clears them from state.
+
+moved {
   from = module.github_repos.github_repository.managed["minecraft-modpack-ltm"]
-
-  lifecycle {
-    destroy = false
-  }
+  to   = github_repository.forgotten_minecraft_modpack_ltm
 }
 
-removed {
+moved {
   from = module.github_repos.github_repository_vulnerability_alerts.managed["minecraft-modpack-ltm"]
-
-  lifecycle {
-    destroy = false
-  }
+  to   = github_repository_vulnerability_alerts.forgotten_minecraft_modpack_ltm
 }
 
-removed {
+moved {
   from = module.github_repos.github_branch_protection.main["minecraft-modpack-ltm"]
-
-  lifecycle {
-    destroy = false
-  }
+  to   = github_branch_protection.forgotten_minecraft_modpack_ltm
 }
 
-removed {
+moved {
   from = module.github_repos.github_repository_file.codeowners["minecraft-modpack-ltm"]
+  to   = github_repository_file.forgotten_minecraft_modpack_ltm
+}
+
+moved {
+  from = module.github_repos.terraform_data.initialize_default_branch["minecraft-modpack-ltm"]
+  to   = terraform_data.forgotten_minecraft_modpack_ltm
+}
+
+removed {
+  from = github_repository.forgotten_minecraft_modpack_ltm
 
   lifecycle {
     destroy = false
@@ -49,7 +54,31 @@ removed {
 }
 
 removed {
-  from = module.github_repos.terraform_data.initialize_default_branch["minecraft-modpack-ltm"]
+  from = github_repository_vulnerability_alerts.forgotten_minecraft_modpack_ltm
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = github_branch_protection.forgotten_minecraft_modpack_ltm
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = github_repository_file.forgotten_minecraft_modpack_ltm
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = terraform_data.forgotten_minecraft_modpack_ltm
 
   lifecycle {
     destroy = false

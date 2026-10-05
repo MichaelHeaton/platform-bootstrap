@@ -9,8 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Drop deleted `minecraft-modpack-ltm` from managed repos via `removed { destroy = false }`
-  (GitHub 404 was failing OpenTofu plan; `prevent_destroy` blocked a normal destroy)
+- Drop deleted `minecraft-modpack-ltm` from managed repos (GitHub 404 broke plan):
+  `moved` each for_each instance to a temp address, then `removed { destroy = false }`
+  (OpenTofu cannot `removed` keyed instances directly; see opentofu#3361)
 - Pack discussion categories: GitHub has no create-category API — verify slugs in compliance
   instead of Terraform `local-exec` (fixes post-merge apply error on `mod-suggestions`)
 - Remove duplicate `GITHUB_TOKEN` key in `terraform-plan.yml` (invalid workflow on `main` push)
