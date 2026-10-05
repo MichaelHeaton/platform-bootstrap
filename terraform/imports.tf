@@ -14,11 +14,12 @@ import {
   id = "iris"
 }
 
-# minecraft-modpack-ltm no longer exists on GitHub (404). OpenTofu cannot
-# `removed` a for_each instance key directly — move each instance to a
-# temporary non-indexed address, then forget with destroy = false.
-# (Same pattern as opentofu/opentofu#3361.) Delete these blocks after one
-# successful apply that clears them from state.
+# minecraft-modpack-ltm was deleted on GitHub while still in state (plan 404).
+# OpenTofu cannot `removed` a for_each instance key — move each instance to a
+# temporary non-indexed address, then forget with destroy = false
+# (opentofu/opentofu#3361). An empty tombstone repo was recreated so the
+# provider can refresh before forget; after apply, delete that tombstone and
+# remove these blocks.
 
 moved {
   from = module.github_repos.github_repository.managed["minecraft-modpack-ltm"]
