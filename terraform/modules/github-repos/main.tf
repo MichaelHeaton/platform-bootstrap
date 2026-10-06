@@ -19,7 +19,7 @@ resource "github_repository" "managed" {
   # the first branch uses the configured name instead of the account default.
   auto_init = false
 
-  allow_merge_commit     = true
+  allow_merge_commit     = try(each.value.squash_merge_only, false) ? false : true
   allow_squash_merge     = true
   allow_rebase_merge     = false
   delete_branch_on_merge = true
@@ -50,6 +50,35 @@ resource "github_repository_vulnerability_alerts" "managed" {
   enabled    = true
 }
 
+resource "github_repository_dependabot_security_updates" "managed" {
+  for_each = local.dependabot_security_updates_repos
+
+  repository = github_repository.managed[each.key].name
+  enabled    = true
+}
+
+resource "github_actions_repository_permissions" "hardened" {
+  for_each = local.actions_hardened_repos
+
+  repository      = github_repository.managed[each.key].name
+  enabled         = true
+  allowed_actions = "selected"
+
+  allowed_actions_config {
+    github_owned_allowed = true
+    verified_allowed     = true
+    patterns_allowed     = []
+  }
+}
+
+resource "github_workflow_repository_permissions" "hardened" {
+  for_each = local.actions_hardened_repos
+
+  repository                       = github_repository.managed[each.key].name
+  default_workflow_permissions     = "read"
+  can_approve_pull_request_reviews = false
+}
+
 resource "github_branch_protection" "main" {
   for_each = local.branch_protection_repos
 
@@ -61,12 +90,16 @@ resource "github_branch_protection" "main" {
     terraform_data.ensure_license,
   ]
 
-  # Admins can bypass in emergencies (break-glass), but normal pushes always
-  # require a reviewed PR.
-  enforce_admins = false
+  # Default false: admins can bypass in emergencies (legacy). Opt-in enforce_admins
+  # for repos that require no bypass (see ADR-008 / Iris).
+  enforce_admins = try(each.value.enforce_admins, false)
 
   allows_deletions    = false
   allows_force_pushes = false
+
+  require_signed_commits          = try(each.value.require_signed_commits, false)
+  required_linear_history         = try(each.value.require_linear_history, false)
+  require_conversation_resolution = try(each.value.require_conversation_resolution, false)
 
   required_pull_request_reviews {
     required_approving_review_count = 0
@@ -85,7 +118,7 @@ resource "github_repository_file" "codeowners" {
 
   repository = github_repository.managed[each.key].name
   branch     = each.value.default_branch
-  file       = "CODEOWNERS"
+  file       = try(each.value.codeowners_file, "CODEOWNERS")
 
   # "* <owner1> <owner2>" — every path owned by all listed handles.
   content = "* ${join(" ", var.codeowners)}\n"

@@ -165,6 +165,21 @@ managed_repositories = [
     topics      = ["readme-profile"]
   },
   {
+    name        = "iris"
+    description = "Iris: a personal AI assistant suite with a web UI, API, and MCP server (knowledge, relationships, tickets, calendar). Monorepo of modular services."
+    visibility  = "private"
+    topics = [
+      "personal-assistant",
+      "ai",
+      "rag",
+      "mcp",
+      "second-brain",
+      "ticketing",
+      "microservices",
+    ]
+    # Baseline protection / Actions / labels merged from terraform/iris.tf (ADR-008).
+  },
+  {
     name        = "memex"
     description = "My Default Obsidian Vault"
     visibility  = "private"
@@ -220,11 +235,8 @@ managed_repositories = [
     description = "Colony Protocol: Verdant — Specter Realms modpack series"
     visibility  = "private"
   },
-  {
-    name        = "minecraft-modpack-ltm"
-    description = "Specter Realms LTM — Persistent biodome world"
-    visibility  = "private"
-  },
+  # minecraft-modpack-ltm deleted on GitHub (404); dropped from config with
+  # removed { destroy = false } blocks in terraform/imports.tf (Iris PR unblock).
 ]
 
 mccleaton_repositories = [

@@ -10,6 +10,8 @@ locals {
 resource "terraform_data" "initialize_default_branch" {
   for_each = local.repos_map
 
+  # Keep codeowners_path out of `input` so adding the flag does not update every
+  # existing repo's terraform_data (provisioner still receives --codeowners-path).
   input = {
     repository               = each.value.name
     branch                   = each.value.default_branch
@@ -21,7 +23,7 @@ resource "terraform_data" "initialize_default_branch" {
   depends_on = [github_repository.managed]
 
   provisioner "local-exec" {
-    command = "python3 ${local.extras_script} ensure-default-branch --repo ${jsonencode(each.value.name)} --branch ${jsonencode(each.value.default_branch)} --codeowners ${jsonencode(join(" ", var.codeowners))} --license-spdx-id ${jsonencode(try(each.value.license.spdx_id, ""))} --license-copyright-holder ${jsonencode(try(each.value.license.copyright_holder, ""))}"
+    command = "python3 ${local.extras_script} ensure-default-branch --repo ${jsonencode(each.value.name)} --branch ${jsonencode(each.value.default_branch)} --codeowners ${jsonencode(join(" ", var.codeowners))} --codeowners-path ${jsonencode(try(each.value.codeowners_file, "CODEOWNERS"))} --license-spdx-id ${jsonencode(try(each.value.license.spdx_id, ""))} --license-copyright-holder ${jsonencode(try(each.value.license.copyright_holder, ""))}"
     environment = {
       GITHUB_TOKEN = data.github_app_token.local_exec.token
       GITHUB_ORG   = var.github_org

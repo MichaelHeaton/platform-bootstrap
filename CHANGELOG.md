@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Drop deleted `minecraft-modpack-ltm` from managed repos (GitHub 404 broke plan):
+  forget via workflow_dispatch `forget-minecraft-modpack-ltm` (`tofu state rm`;
+  OpenTofu cannot `removed` keyed instances; see opentofu#3361).
 - Pack discussion categories: GitHub has no create-category API — verify slugs in compliance
   instead of Terraform `local-exec` (fixes post-merge apply error on `mod-suggestions`)
 - Remove duplicate `GITHUB_TOKEN` key in `terraform-plan.yml` (invalid workflow on `main` push)
@@ -16,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Iris GitHub repository baseline (ADR-008)
+  - Register private `MichaelHeaton/iris` in `managed_repositories` with import bootstrap
+  - Opt-in `github-repos` knobs: squash-only merges, signed commits, linear history,
+    conversation resolution, enforce admins, `.github/CODEOWNERS`, Dependabot security
+    updates, hardened Actions permissions
+  - Iris label set (`type/*`, `area/*`, `priority/p0`–`p3`, `status/needs-decision`) in
+    `terraform/iris.tf`
 - Runbook `04-add-service.md` and `configure-service-cicd` script/Makefile targets to wire
   `AWS_DEPLOY_ROLE_ARN` / `AWS_SAM_BUCKET` on service repos from Terraform outputs
 - Terraform outputs: `github_org`, `service_repo_names` (for CI/CD wiring script)
@@ -59,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - ADR-005: Python Script for Compliance Drift Detection (Not OPA or Checkov)
   - ADR-006: Terraform Modules as Subdirectories (Not Separate Repos)
   - ADR-007: S3 Native State Locking over DynamoDB
+  - ADR-008: GitHub repository baseline settings for Iris
 - CODEOWNERS enforcement requiring `@MichaelHeaton` review on all changes
 - `.gitignore` excluding Terraform state files, `.tfvars`, `.terraform/` directories, and
   plan artifacts from version control

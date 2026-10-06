@@ -153,6 +153,16 @@ variable "mccleaton_repositories" {
 
     main_branch_ruleset = optional(bool, false)
     branch_protection   = optional(bool, true)
+
+    # Opt-in baseline knobs (defaults preserve legacy module behavior). See ADR-008.
+    squash_merge_only               = optional(bool, false)
+    require_signed_commits          = optional(bool, false)
+    require_linear_history          = optional(bool, false)
+    require_conversation_resolution = optional(bool, false)
+    enforce_admins                  = optional(bool, false)
+    codeowners_file                 = optional(string, "CODEOWNERS")
+    dependabot_security_updates     = optional(bool, false)
+    actions_hardened                = optional(bool, false)
   }))
   description = "GitHub repositories under mccleaton_org — platform factory spokes, not SpecterRealm game content."
   default     = []
@@ -210,6 +220,16 @@ variable "specterrealm_homelab_repositories" {
 
     main_branch_ruleset = optional(bool, false)
     branch_protection   = optional(bool, true)
+
+    # Opt-in baseline knobs (defaults preserve legacy module behavior). See ADR-008.
+    squash_merge_only               = optional(bool, false)
+    require_signed_commits          = optional(bool, false)
+    require_linear_history          = optional(bool, false)
+    require_conversation_resolution = optional(bool, false)
+    enforce_admins                  = optional(bool, false)
+    codeowners_file                 = optional(string, "CODEOWNERS")
+    dependabot_security_updates     = optional(bool, false)
+    actions_hardened                = optional(bool, false)
   }))
   description = "GitHub repositories under specterrealm_homelab_org — homelab ops, not Minecraft modpack content."
   default     = []
@@ -254,6 +274,16 @@ variable "managed_repositories" {
 
     main_branch_ruleset = optional(bool, false)
     branch_protection   = optional(bool, true)
+
+    # Opt-in baseline knobs (defaults preserve legacy module behavior). See ADR-008.
+    squash_merge_only               = optional(bool, false)
+    require_signed_commits          = optional(bool, false)
+    require_linear_history          = optional(bool, false)
+    require_conversation_resolution = optional(bool, false)
+    enforce_admins                  = optional(bool, false)
+    codeowners_file                 = optional(string, "CODEOWNERS")
+    dependabot_security_updates     = optional(bool, false)
+    actions_hardened                = optional(bool, false)
   }))
   description = "GitHub repositories to manage. Must NOT include platform-bootstrap. See ADR-004."
   default     = []
@@ -300,6 +330,16 @@ variable "specterrealm_repositories" {
 
     main_branch_ruleset = optional(bool, false)
     branch_protection   = optional(bool, true)
+
+    # Opt-in baseline knobs (defaults preserve legacy module behavior). See ADR-008.
+    squash_merge_only               = optional(bool, false)
+    require_signed_commits          = optional(bool, false)
+    require_linear_history          = optional(bool, false)
+    require_conversation_resolution = optional(bool, false)
+    enforce_admins                  = optional(bool, false)
+    codeowners_file                 = optional(string, "CODEOWNERS")
+    dependabot_security_updates     = optional(bool, false)
+    actions_hardened                = optional(bool, false)
   }))
   description = "GitHub repositories to manage under the SpecterRealm org. Same schema as managed_repositories."
   default     = []
