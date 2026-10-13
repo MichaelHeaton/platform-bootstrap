@@ -1,4 +1,4 @@
-# Cloudflare Tunnel substrate for kb-mcp off-LAN (#1135 / homelab-infra).
+# Cloudflare Tunnel substrate for the homelab MCPs off-LAN (#1135 / HLB-397).
 #
 # Ownership (HomeLab 2.0): public Tunnel DNS + remote tunnel ingress live HERE.
 # Homelab GitOps owns the cloudflared connector (gitops/platform/cloudflared).
@@ -14,9 +14,13 @@
 # After Zero Trust tunnel create, set TF_VAR_kb_mcp_tunnel_id=<uuid> (Actions
 # var) or kb_mcp.auto.tfvars. Empty UUID skips CNAME + ingress (safe default).
 #
-# DNS and tunnel config are independent: this root owns the proxied CNAME and
+# DNS and tunnel config are independent: this root owns the proxied CNAMEs and
 # the remote ingress rules. Do not let the Zero Trust "Published application"
-# UI create a second DNS record for kb-mcp.
+# UI create a second DNS record for kb-mcp or obs-mcp.
+#
+# Ingress must match homelab-infra gitops/platform/cloudflared/allowlist.yaml
+# (CI-enforced Host list there). Every MCP Host sits behind a Cloudflare Access
+# app owned by homelab-infra terraform/cloudflare — apply that root first.
 
 locals {
   cloudflare_tunnel_manage = var.kb_mcp_tunnel_id != ""
@@ -64,8 +68,24 @@ resource "cloudflare_dns_record" "specterrealm_com_kb_mcp" {
   ttl     = 1
 }
 
-# Remote tunnel ingress only — does not create DNS. Hostname allowlist is kb-mcp;
-# catch-all 404 is required by Cloudflare.
+# Public path for Observability MCP (HLB-397). LAN stays UniFi → Traefik.
+# HLB-856 gate: Access app "obs-mcp" with per-agent service tokens
+# (homelab-infra terraform/cloudflare/mcp_agents_access.tf) must exist first.
+resource "cloudflare_dns_record" "specterrealm_com_obs_mcp" {
+  count = local.cloudflare_tunnel_manage ? 1 : 0
+
+  zone_id = data.cloudflare_zone.specterrealm[0].zone_id
+  name    = "obs-mcp.specterrealm.com"
+  type    = "CNAME"
+  content = "${var.kb_mcp_tunnel_id}.cfargotunnel.com"
+  proxied = true
+  ttl     = 1
+}
+
+# Remote tunnel ingress only — does not create DNS. Hostnames are a subset of the
+# homelab-infra cloudflared allowlist; catch-all 404 is required by Cloudflare.
+# tickets.specterrealm.com is on that allowlist but not live here (2026-10-13
+# plan): adding it would publish Plane, which is a separate decision.
 resource "cloudflare_zero_trust_tunnel_cloudflared_config" "kb_mcp" {
   count = local.cloudflare_tunnel_manage ? 1 : 0
 
@@ -78,6 +98,10 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "kb_mcp" {
       {
         hostname = "kb-mcp.specterrealm.com"
         service  = "http://kb-mcp.knowledge-base.svc:8000"
+      },
+      {
+        hostname = "obs-mcp.specterrealm.com"
+        service  = "http://obs-mcp.observability-mcp.svc:8000"
       },
       {
         service = "http_status:404"
@@ -101,5 +125,14 @@ output "kb_mcp_tunnel_ingress_hostname" {
     local.cloudflare_tunnel_manage
     ? "kb-mcp.specterrealm.com"
     : ""
+  )
+}
+
+output "tunnel_ingress_hostnames" {
+  description = "All public hostnames in the tunnel remote config (empty when kb_mcp_tunnel_id is unset)."
+  value = (
+    local.cloudflare_tunnel_manage
+    ? ["kb-mcp.specterrealm.com", "obs-mcp.specterrealm.com"]
+    : []
   )
 }
