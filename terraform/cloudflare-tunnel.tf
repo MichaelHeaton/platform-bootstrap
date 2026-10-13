@@ -82,8 +82,10 @@ resource "cloudflare_dns_record" "specterrealm_com_obs_mcp" {
   ttl     = 1
 }
 
-# Remote tunnel ingress only — does not create DNS. Hostnames match the
+# Remote tunnel ingress only — does not create DNS. Hostnames are a subset of the
 # homelab-infra cloudflared allowlist; catch-all 404 is required by Cloudflare.
+# tickets.specterrealm.com is on that allowlist but not live here (2026-10-13
+# plan): adding it would publish Plane, which is a separate decision.
 resource "cloudflare_zero_trust_tunnel_cloudflared_config" "kb_mcp" {
   count = local.cloudflare_tunnel_manage ? 1 : 0
 
@@ -96,12 +98,6 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "kb_mcp" {
       {
         hostname = "kb-mcp.specterrealm.com"
         service  = "http://kb-mcp.knowledge-base.svc:8000"
-      },
-      # Plane UI (HLB-852 Option A) — on the allowlist since #454; listed here so
-      # a TF apply of this resource keeps it instead of dropping a UI-added rule.
-      {
-        hostname = "tickets.specterrealm.com"
-        service  = "http://traefik.traefik.svc.cluster.local:80"
       },
       {
         hostname = "obs-mcp.specterrealm.com"
@@ -136,7 +132,7 @@ output "tunnel_ingress_hostnames" {
   description = "All public hostnames in the tunnel remote config (empty when kb_mcp_tunnel_id is unset)."
   value = (
     local.cloudflare_tunnel_manage
-    ? ["kb-mcp.specterrealm.com", "tickets.specterrealm.com", "obs-mcp.specterrealm.com"]
+    ? ["kb-mcp.specterrealm.com", "obs-mcp.specterrealm.com"]
     : []
   )
 }
