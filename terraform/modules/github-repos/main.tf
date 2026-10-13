@@ -53,7 +53,9 @@ resource "github_repository_vulnerability_alerts" "managed" {
 resource "github_repository_dependabot_security_updates" "managed" {
   for_each = local.dependabot_security_updates_repos
 
-  repository = github_repository.managed[each.key].name
+  # GitHub rejects automated-security-fixes (422) until vulnerability alerts
+  # are on; without this edge both are created in parallel on a new repo.
+  repository = github_repository_vulnerability_alerts.managed[each.key].repository
   enabled    = true
 }
 
