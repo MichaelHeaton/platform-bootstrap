@@ -10,7 +10,8 @@ spokes (Cloudflare, Azure, homelab, services) so they can run independently.
 
 It does **not** own most domain resources — no Azure Entra apps or Proxmox VMs live here.
 **Exception (2026-09-16, HomeLab 2.0 / #1135):** Cloudflare **Tunnel substrate** for
-narrow public hostnames (today: `kb-mcp.specterrealm.com` and `obs-mcp.specterrealm.com`
+narrow public hostnames (today: `kb-mcp.specterrealm.com`, `obs-mcp.specterrealm.com`,
+`iris.specterrealm.com` and `auth.specterrealm.com`
 → `*.cfargotunnel.com` CNAMEs **and** remote tunnel ingress → in-cluster services; must be a subset of homelab-infra `gitops/platform/cloudflared/allowlist.yaml`) and the SM token wiring
 for that path live in this repo (`terraform/cloudflare-tunnel.tf`). Broader personal
 DNS (mail, etc.) remains in `homelab-infra/terraform/cloudflare/`. The k3s
