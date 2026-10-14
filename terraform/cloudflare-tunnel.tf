@@ -21,6 +21,8 @@
 # Ingress must match homelab-infra gitops/platform/cloudflared/allowlist.yaml
 # (CI-enforced Host list there). Every MCP Host sits behind a Cloudflare Access
 # app owned by homelab-infra terraform/cloudflare — apply that root first.
+# iris + auth (browser Hosts) have no Access app; homelab-infra's identity root
+# (iris-web group binding) must be applied first instead.
 
 locals {
   cloudflare_tunnel_manage = var.kb_mcp_tunnel_id != ""
@@ -82,6 +84,32 @@ resource "cloudflare_dns_record" "specterrealm_com_obs_mcp" {
   ttl     = 1
 }
 
+# Public path for the Iris web UI (2026-10-14). LAN stays UniFi → Traefik.
+# Same hostname on and off LAN, so Iris's OIDC redirect URI is unchanged.
+resource "cloudflare_dns_record" "specterrealm_com_iris" {
+  count = local.cloudflare_tunnel_manage ? 1 : 0
+
+  zone_id = data.cloudflare_zone.specterrealm[0].zone_id
+  name    = "iris.specterrealm.com"
+  type    = "CNAME"
+  content = "${var.kb_mcp_tunnel_id}.cfargotunnel.com"
+  proxied = true
+  ttl     = 1
+}
+
+# Authentik login, public only because Iris sign-in redirects browsers here.
+# No Cloudflare Access (Michael, 2026-10-14); the admin UI is 404'd in ingress.
+resource "cloudflare_dns_record" "specterrealm_com_auth" {
+  count = local.cloudflare_tunnel_manage ? 1 : 0
+
+  zone_id = data.cloudflare_zone.specterrealm[0].zone_id
+  name    = "auth.specterrealm.com"
+  type    = "CNAME"
+  content = "${var.kb_mcp_tunnel_id}.cfargotunnel.com"
+  proxied = true
+  ttl     = 1
+}
+
 # Remote tunnel ingress only — does not create DNS. Hostnames are a subset of the
 # homelab-infra cloudflared allowlist; catch-all 404 is required by Cloudflare.
 # tickets.specterrealm.com is on that allowlist but not live here (2026-10-13
@@ -102,6 +130,31 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "kb_mcp" {
       {
         hostname = "obs-mcp.specterrealm.com"
         service  = "http://obs-mcp.observability-mcp.svc:8000"
+      },
+      # Iris + Authentik go to Traefik websecure, not the pods: Traefik holds the
+      # certs and routes by Host, and HTTPS makes Authentik build https:// URLs.
+      # origin_server_name sets SNI (and cert check) to the public Host.
+      {
+        hostname = "iris.specterrealm.com"
+        service  = "https://traefik.traefik.svc.cluster.local:443"
+        origin_request = {
+          origin_server_name = "iris.specterrealm.com"
+          http_host_header   = "iris.specterrealm.com"
+        }
+      },
+      # Authentik admin UI stays LAN/VPN; must sit above the catch-all auth rule.
+      {
+        hostname = "auth.specterrealm.com"
+        path     = "^/if/admin"
+        service  = "http_status:404"
+      },
+      {
+        hostname = "auth.specterrealm.com"
+        service  = "https://traefik.traefik.svc.cluster.local:443"
+        origin_request = {
+          origin_server_name = "auth.specterrealm.com"
+          http_host_header   = "auth.specterrealm.com"
+        }
       },
       {
         service = "http_status:404"
@@ -132,7 +185,7 @@ output "tunnel_ingress_hostnames" {
   description = "All public hostnames in the tunnel remote config (empty when kb_mcp_tunnel_id is unset)."
   value = (
     local.cloudflare_tunnel_manage
-    ? ["kb-mcp.specterrealm.com", "obs-mcp.specterrealm.com"]
+    ? ["kb-mcp.specterrealm.com", "obs-mcp.specterrealm.com", "iris.specterrealm.com", "auth.specterrealm.com"]
     : []
   )
 }
